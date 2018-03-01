@@ -4,7 +4,8 @@
 @license: MIT <http://www.opensource.org/licenses/mit-license.php>
 
 
-Represent and generate domain model classes from category-like equations.
+Generate and represent domain model classes via category-like equations which
+can be simplified to get the optimal class structure for the modeled domain.
 
 """
 
