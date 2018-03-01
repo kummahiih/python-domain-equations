@@ -160,20 +160,23 @@ class Property:
         return str(self)
 
 
+#TODO: refactor the equation system to get rid of the callback -thing
+#instead get the list of connection points as a return value from .evalute()
 class PropertyGraph:
     """
     >>> g  = PropertyGraph()
+    >>> I, O, C = g.I, g.O, g.C
 
 One can represent the need of something with the operator '*' in the following way:
 To measure speed you have to get interval and distance. To model this you can write:
 
-    >>> speed = g.C('speed')
+    >>> speed = C('speed')
     >>> speed
     C(speed)
 
-    >>> distance = g.C('distance')
-    >>> duration = g.C('duration')
-    >>> (speed*(distance+duration)).evaluate()
+    >>> distance = C('distance')
+    >>> duration = C('duration')
+    >>> g.get_properties_from(speed*(distance+duration))
     >>> for i in g.properties:
     ...  print(i)
     {"naming": {"type": "Distance", "value": "distance"}}
@@ -182,10 +185,10 @@ To measure speed you have to get interval and distance. To model this you can wr
 
 For fines you have to know also:
 
-    >>> fine = g.C('fine')
-    >>> monthly_income =  g.C('monthly_income')
-    >>> speed_limit =  g.C('speed_limit')
-    >>> (speed*(distance + duration) + fine*(speed + monthly_income + speed_limit)).evaluate()
+    >>> fine = C('fine')
+    >>> monthly_income =  C('monthly_income')
+    >>> speed_limit =  C('speed_limit')
+    >>> g.get_properties_from(speed*(distance + duration) + fine*(speed + monthly_income + speed_limit))
     >>> for i in g.properties:
     ...  print(i)
     {"naming": {"type": "Distance", "value": "distance"}}
@@ -200,22 +203,49 @@ For fines you have to know also:
 
     def __init__(self):
         self.clear()
-        self.I, self.O, self._C = from_operator(self._connect)
+        self.I, self.O, self.C = from_operator(self._connect)
+ 
 
     def clear(self):
+        """
+        Clear the defined properties
+        """
         self.properties_by_value_name = {}
         self.namings_by_value_name = {}
 
-    def C(self, name: str):
+    @property
+    def properties(self):
+        """
+        Creates the defined properties (iterator)
+        """
+        keys = list(self.namings_by_value_name.keys())
+        keys.sort()
+        for value_name in keys:
+            naming = self.namings_by_value_name[value_name]
+            properties = self.properties_by_value_name.get(value_name, None)
+            yield Property(naming, properties)
+
+    def get_properties_from(self, term):
+        """
+        Get the properties from the given term which has been done using the wrapper
+        provided on the same class instance
+        """
+        self.clear()
+        (self.O * term * self.O).evaluate()
+
+
+    def _update_naming(self, name):
         naming = Naming(name)
-        found  = self.namings_by_value_name.get(naming.value_name, None)
+        found = self.namings_by_value_name.get(naming.value_name, None)
 
         if found is None:
             self.namings_by_value_name[naming.value_name] = naming
-        return self._C(name)
 
     def _connect(self, source_name: str, sink_name: str):
+        self._update_naming(source_name)
         source = self.namings_by_value_name.get(source_name)
+
+        self._update_naming(sink_name)
         sink = self.namings_by_value_name.get(sink_name)
 
         component_list = self.properties_by_value_name.get(
@@ -224,16 +254,6 @@ For fines you have to know also:
 
         component_list.add(sink)
         self.properties_by_value_name[source.value_name] = component_list
-
-    @property
-    def properties(self):
-        keys = list(self.namings_by_value_name.keys())
-        keys.sort()
-        for value_name in keys:
-            naming = self.namings_by_value_name[value_name]
-            properties = self.properties_by_value_name.get(value_name, None)
-            yield Property(naming, properties)
-
 
 
 

@@ -12,17 +12,18 @@ Represent and generate domain model classes from category-like equations.
 
 
     >>> g  = PropertyGraph()
+    >>> I, O, C = g.I, g.O, g.C
 
 One can represent the need of something with the operator '*' in the following way:
 To measure speed you have to get interval and distance. To model this you can write:
 
-    >>> speed = g.C('speed')
+    >>> speed = C('speed')
     >>> speed
     C(speed)
 
-    >>> distance = g.C('distance')
-    >>> duration = g.C('duration')
-    >>> (speed*(distance+duration)).evaluate()
+    >>> distance = C('distance')
+    >>> duration = C('duration')
+    >>> g.get_properties_from(speed*(distance+duration))
     >>> for i in g.properties:
     ...  print(i)
     {"naming": {"type": "Distance", "value": "distance"}}
@@ -31,10 +32,10 @@ To measure speed you have to get interval and distance. To model this you can wr
 
 For fines you have to know also:
 
-    >>> fine = g.C('fine')
-    >>> monthly_income =  g.C('monthly_income')
-    >>> speed_limit =  g.C('speed_limit')
-    >>> (speed*(distance + duration) + fine*(speed + monthly_income + speed_limit)).evaluate()
+    >>> fine = C('fine')
+    >>> monthly_income =  C('monthly_income')
+    >>> speed_limit =  C('speed_limit')
+    >>> g.get_properties_from(speed*(distance + duration) + fine*(speed + monthly_income + speed_limit))
     >>> for i in g.properties:
     ...  print(i)
     {"naming": {"type": "Distance", "value": "distance"}}
