@@ -7,9 +7,18 @@ from setuptools import setup
 import domain_equations
 
 
+README = "\n\n".join([
+    "# python-domain-equations",
+    domain_equations.__doc__,
+    domain_equations.PropertyGraph.__doc__])
+
+with open('README.md', 'wt') as readme_file:
+    readme_file.write(README)
+
+
 setup(
     name='python-domain-equations',
-    version='0.0.0',
+    version='0.0.1',
     description='python-domain-equations',
     long_description="",  # TODO
     license="MIT",
@@ -19,6 +28,7 @@ setup(
     python_requires='~=3.6',
     classifiers=[
         'License :: OSI Approved :: MIT License',
-        'Programming Language :: Python :: 3.6']
+        'Programming Language :: Python :: 3.6'],
+    install_requires=['python-category-equations == 0.3.2']
 )
 

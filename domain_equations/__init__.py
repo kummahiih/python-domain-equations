@@ -8,6 +8,7 @@ Represent and generate domain model classes from category equations.
 
 """
 
+from .property_graph import PropertyGraph
 
 
-__all__ = []
+__all__ = ['PropertyGraph']
