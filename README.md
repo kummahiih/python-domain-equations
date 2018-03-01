@@ -84,28 +84,30 @@ Nice and simple, but then the reality starts to kick in and you have to model th
 different rules for small fines which do not need monthly income:
 
     >>> small_fine = C("small_fine")
-    >>> for i in g.get_properties_from( fine*(speed*(distance + duration)*O + monthly_income + speed_limit) + small_fine*speed*(distance + duration)*O):
+    >>> model =fine* (speed*(distance + duration)*O + monthly_income + speed_limit) + small_fine*(speed + speed_limit)*O
+    >>> for i in g.get_properties_from(model):
     ...  print(i)
     {"naming": {"type": "Distance", "value": "distance"}}
     {"naming": {"type": "Duration", "value": "duration"}}
     {"naming": {"type": "Fine", "value": "fine"}, "properties": ["MonthlyIncome", "Speed", "SpeedLimit"]}
     {"naming": {"type": "MonthlyIncome", "value": "monthly_income"}}
-    {"naming": {"type": "SmallFine", "value": "small_fine"}, "properties": ["Speed"]}
+    {"naming": {"type": "SmallFine", "value": "small_fine"}, "properties": ["Speed", "SpeedLimit"]}
     {"naming": {"type": "Speed", "value": "speed"}, "properties": ["Distance", "Duration"]}
     {"naming": {"type": "SpeedLimit", "value": "speed_limit"}}
 
 Here one could inheritate the small fine and fine from the same base class which is same as the following trick
 with the equation system:
-
-    >>> for i in g.get_properties_from( (fine* ( I + monthly_income*O + speed_limit*O) + small_fine)*speed*(distance + duration) ):
+    >>> model = (fine* ( I + monthly_income*O ) + small_fine)*(speed + speed_limit*O)*(distance + duration)
+    >>> for i in g.get_properties_from( model ):
     ...    print(i)
     {"naming": {"type": "Distance", "value": "distance"}}
     {"naming": {"type": "Duration", "value": "duration"}}
     {"naming": {"type": "Fine", "value": "fine"}, "properties": ["MonthlyIncome", "Speed", "SpeedLimit"]}
     {"naming": {"type": "MonthlyIncome", "value": "monthly_income"}}
-    {"naming": {"type": "SmallFine", "value": "small_fine"}, "properties": ["Speed"]}
+    {"naming": {"type": "SmallFine", "value": "small_fine"}, "properties": ["Speed", "SpeedLimit"]}
     {"naming": {"type": "Speed", "value": "speed"}, "properties": ["Distance", "Duration"]}
     {"naming": {"type": "SpeedLimit", "value": "speed_limit"}}
+
 
 In other words: if you manage to minimize the equation, you get the optimal class structure from it. 
 

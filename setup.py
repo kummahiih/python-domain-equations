@@ -18,7 +18,7 @@ with open('README.md', 'wt') as readme_file:
 
 setup(
     name='python-domain-equations',
-    version='0.0.4',
+    version='0.0.5',
     description='python-domain-equations',
     long_description=README,
     license="MIT",
