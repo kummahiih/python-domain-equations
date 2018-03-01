@@ -257,6 +257,7 @@ different rules for small fines which do not need monthly income:
 
 Here one could inheritate the small fine and fine from the same base class which is same as the following trick
 with the equation system:
+    
     >>> model = (fine* ( I + monthly_income*O ) + small_fine)*(speed + speed_limit*O)*(distance + duration)
     >>> for i in g.get_properties_from( model ):
     ...    print(i)
