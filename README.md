@@ -84,7 +84,7 @@ Nice and simple, but then the reality starts to kick in and you have to model th
 different rules for small fines which do not need monthly income:
 
     >>> small_fine = C("small_fine")
-    >>> for i in g.get_properties_from(         fine*(speed*(distance + duration)*O + monthly_income + speed_limit) +         small_fine*speed*(distance + duration)*O):
+    >>> for i in g.get_properties_from( fine*(speed*(distance + duration)*O + monthly_income + speed_limit) + small_fine*speed*(distance + duration)*O):
     ...  print(i)
     {"naming": {"type": "Distance", "value": "distance"}}
     {"naming": {"type": "Duration", "value": "duration"}}
@@ -97,7 +97,7 @@ different rules for small fines which do not need monthly income:
 Here one could inheritate the small fine and fine from the same base class which is same as the following trick
 with the equation system:
 
-    >>> for i in g.get_properties_from(           (fine* ( I + monthly_income*O + speed_limit*O) + small_fine)*speed*(distance + duration)):
+    >>> for i in g.get_properties_from( (fine* ( I + monthly_income*O + speed_limit*O) + small_fine)*speed*(distance + duration) ):
     ...    print(i)
     {"naming": {"type": "Distance", "value": "distance"}}
     {"naming": {"type": "Duration", "value": "duration"}}
