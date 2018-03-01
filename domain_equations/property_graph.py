@@ -164,8 +164,8 @@ class PropertyGraph:
     """
     >>> g  = PropertyGraph()
 
-    one can represent the need of something with the operator '*' in the following way:
-    To measure speed you have to get interval and distance. To model this you can write:
+One can represent the need of something with the operator '*' in the following way:
+To measure speed you have to get interval and distance. To model this you can write:
 
     >>> speed = g.C('speed')
     >>> speed
@@ -180,7 +180,8 @@ class PropertyGraph:
     {"naming": {"type": "Duration", "value": "duration"}}
     {"naming": {"type": "Speed", "value": "speed"}, "properties": ["Distance", "Duration"]}
 
-    For fines you have to know also:
+For fines you have to know also:
+
     >>> fine = g.C('fine')
     >>> monthly_income =  g.C('monthly_income')
     >>> speed_limit =  g.C('speed_limit')
@@ -193,6 +194,8 @@ class PropertyGraph:
     {"naming": {"type": "MonthlyIncome", "value": "monthly_income"}}
     {"naming": {"type": "Speed", "value": "speed"}, "properties": ["Distance", "Duration"]}
     {"naming": {"type": "SpeedLimit", "value": "speed_limit"}}
+
+
     """
 
     def __init__(self):
@@ -230,7 +233,6 @@ class PropertyGraph:
             naming = self.namings_by_value_name[value_name]
             properties = self.properties_by_value_name.get(value_name, None)
             yield Property(naming, properties)
-
 
 
 

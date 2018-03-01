@@ -18,9 +18,9 @@ with open('README.md', 'wt') as readme_file:
 
 setup(
     name='python-domain-equations',
-    version='0.0.1',
+    version='0.0.2',
     description='python-domain-equations',
-    long_description="",  # TODO
+    long_description=README,
     license="MIT",
     author="Pauli Rikula",
     url='https://github.com/kummahiih/python-domain-equations',
