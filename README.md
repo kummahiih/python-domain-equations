@@ -1,16 +1,19 @@
 # python-domain-equations
 
+Generate and represent domain model classes via category-like equations
+which can be simplified to get the optimal class structure for the modeled domain.
 
-@copyright: 2018 by Pauli Rikula <pauli.rikula@gmail.com>
+## Rationale
 
-@license: MIT <http://www.opensource.org/licenses/mit-license.php>
+If you have a problem, it sometime helps if you formulate the problem in a new perspective.
 
-
-Generate and represent domain model classes via category-like equations which
+The PropertyGraph -class can be used to domain model class structure modeling and generation.
+The trick here is to transform the problem to category-like equations which
 can be simplified to get the optimal class structure for the modeled domain.
 
+More details of the equation system can be found from the site: https://github.com/kummahiih/python-category-equations
 
-
+## Usage
 
 To model your domain, create a property graph:
 
@@ -20,16 +23,14 @@ Please note that the I, O and C here are for the property graph instance g:
 
     >>> I, O, C = g.I, g.O, g.C
 
-To measure speed you have to get interval and distance. To model this you can write:
+For example to measure speed you have to get interval and distance. First you have to define
+the used properties by using the wrapper class C:
 
     >>> speed = C('speed')
-    >>> speed
-    C(speed)
-
     >>> distance = C('distance')
     >>> duration = C('duration')
 
-You can represent the need of something with the operator '*' and then 
+You can represent the need of something with the operator '*' and then
 have the properties set into the graph g like this:
 
     >>> for i in g.get_properties_from( speed*(distance+duration) ):
@@ -50,7 +51,8 @@ For fines you have to know (at least in Finland) also:
     >>> fine = C('fine')
     >>> monthly_income =  C('monthly_income')
     >>> speed_limit =  C('speed_limit')
-    >>> for i in g.get_properties_from(speed*(distance + duration) + fine*(speed + monthly_income + speed_limit)):
+    >>> first_model = O * (speed*(distance + duration) + fine*(speed + monthly_income + speed_limit)) * O
+    >>> for i in g.get_properties_from(first_model):
     ...  print(i)
     {"naming": {"type": "Distance", "value": "distance"}}
     {"naming": {"type": "Duration", "value": "duration"}}
@@ -59,14 +61,15 @@ For fines you have to know (at least in Finland) also:
     {"naming": {"type": "Speed", "value": "speed"}, "properties": ["Distance", "Duration"]}
     {"naming": {"type": "SpeedLimit", "value": "speed_limit"}}
 
-Because these equations are the same (note the usage of the O)
+Because these equations are the same (note the usage of the O at the begin and end)
 
-    >>> O * (speed*(distance + duration) + fine*(speed + monthly_income + speed_limit)) * O ==      O *  fine*(speed*(distance + duration)*O + monthly_income + speed_limit) * O
+    >>> simplified_model =  O *  fine*(speed*(distance + duration)*O + monthly_income + speed_limit) * O
+    >>> first_model == simplified_model
     True
 
-also the generated properties are the same
+also the generated properties are the same:
 
-    >>> for i in g.get_properties_from(fine*(speed*(distance + duration)*O + monthly_income + speed_limit)):
+    >>> for i in g.get_properties_from(simplified_model):
     ...  print(i)
     {"naming": {"type": "Distance", "value": "distance"}}
     {"naming": {"type": "Duration", "value": "duration"}}
@@ -74,18 +77,13 @@ also the generated properties are the same
     {"naming": {"type": "MonthlyIncome", "value": "monthly_income"}}
     {"naming": {"type": "Speed", "value": "speed"}, "properties": ["Distance", "Duration"]}
     {"naming": {"type": "SpeedLimit", "value": "speed_limit"}}
-
-And so the generated property lists are also equal
-
-    >>> list(g.get_properties_from(fine*(speed*(distance + duration)*O + monthly_income + speed_limit))) ==         list(g.get_properties_from(speed*(distance + duration) + fine*(speed + monthly_income + speed_limit)))
-    True
 
 Nice and simple, but then the reality starts to kick in and you have to model the real thing where you have for example
 different rules for small fines which do not need monthly income:
 
     >>> small_fine = C("small_fine")
-    >>> model =fine* (speed*(distance + duration)*O + monthly_income + speed_limit) + small_fine*(speed + speed_limit)*O
-    >>> for i in g.get_properties_from(model):
+    >>> second_model =O*(fine* (speed*(distance + duration)*O + monthly_income + speed_limit) + small_fine*(speed + speed_limit))*O
+    >>> for i in g.get_properties_from(second_model):
     ...  print(i)
     {"naming": {"type": "Distance", "value": "distance"}}
     {"naming": {"type": "Duration", "value": "duration"}}
@@ -95,21 +93,14 @@ different rules for small fines which do not need monthly income:
     {"naming": {"type": "Speed", "value": "speed"}, "properties": ["Distance", "Duration"]}
     {"naming": {"type": "SpeedLimit", "value": "speed_limit"}}
 
-Here one could inheritate the small fine and fine from the same base class which is same as the following trick
-with the equation system:
+Here one could create an intermediate class and use it as a member on both fines or inherit the small fine and fine from the same base class.
+If you write it by using the provided equation system, it looks like this:
     
-    >>> model = (fine* ( I + monthly_income*O ) + small_fine)*(speed + speed_limit*O)*(distance + duration)
-    >>> for i in g.get_properties_from( model ):
-    ...    print(i)
-    {"naming": {"type": "Distance", "value": "distance"}}
-    {"naming": {"type": "Duration", "value": "duration"}}
-    {"naming": {"type": "Fine", "value": "fine"}, "properties": ["MonthlyIncome", "Speed", "SpeedLimit"]}
-    {"naming": {"type": "MonthlyIncome", "value": "monthly_income"}}
-    {"naming": {"type": "SmallFine", "value": "small_fine"}, "properties": ["Speed", "SpeedLimit"]}
-    {"naming": {"type": "Speed", "value": "speed"}, "properties": ["Distance", "Duration"]}
-    {"naming": {"type": "SpeedLimit", "value": "speed_limit"}}
+    >>> second_model_simplified = O * (fine* ( I + monthly_income*O ) + small_fine)*(speed + speed_limit*O)*(distance + duration) * O
+    >>> second_model_simplified == second_model
+    True
 
-
-In other words: if you manage to minimize the equation, you get the optimal class structure from it. 
+In other words: if you manage to minimize the equation by finding the common divisors, you can get the optimal class composition
+structure from it. 
 
     

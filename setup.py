@@ -9,7 +9,6 @@ import domain_equations
 
 README = "\n\n".join([
     "# python-domain-equations",
-    domain_equations.__doc__,
     domain_equations.PropertyGraph.__doc__])
 
 with open('README.md', 'wt') as readme_file:
@@ -18,7 +17,7 @@ with open('README.md', 'wt') as readme_file:
 
 setup(
     name='python-domain-equations',
-    version='0.0.5',
+    version='0.0.6',
     description='python-domain-equations',
     long_description=README,
     license="MIT",
