@@ -17,7 +17,7 @@ with open('README.md', 'wt') as readme_file:
 
 setup(
     name='python-domain-equations',
-    version='0.0.6',
+    version='0.0.7',
     description='python-domain-equations',
     long_description=README,
     license="MIT",
@@ -28,6 +28,6 @@ setup(
     classifiers=[
         'License :: OSI Approved :: MIT License',
         'Programming Language :: Python :: 3.6'],
-    install_requires=['python-category-equations == 0.3.2']
+    install_requires=['python-category-equations == 0.3.7']
 )
 

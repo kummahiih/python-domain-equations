@@ -101,6 +101,15 @@ If you write it by using the provided equation system, it looks like this:
     True
 
 In other words: if you manage to minimize the equation by finding the common divisors, you can get the optimal class composition
-structure from it. 
+structure from it.
+
+In case you are wondering how to spot the potential intermediate constructs from the model, the trick is to search for the 
+summed product terms which end to a term O:
+
+    >>> for term in g.extract_intermediate_terms(second_model_simplified):
+    ...   print(term)
+    (((C(speed)) + ((C(speed_limit)) * (O))) * ((C(distance)) + (C(duration)))) * (O)
+    ((C(distance)) + (C(duration))) * (O)
+
 
     

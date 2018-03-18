@@ -3,7 +3,7 @@
    @license: MIT <http://www.opensource.org/licenses/mit-license.php>
 """
 
-from category_equations import from_operator
+from category_equations import from_operator, get_topmost_tail_products
 import re
 
 
@@ -70,7 +70,7 @@ class Naming:
     def __str__(self)  -> str:
         return '{{"type": "{}", "value": "{}"}}'.format(self.class_name, self.value_name)
 
-    def __repr__(self) -> str:
+    def __repr__(self):
         return str(self)
 
 
@@ -112,7 +112,7 @@ class PropertyList:
                     lambda c: '"{}"'.format(c.class_name),
                     self.properties)))
 
-    def __repr__(self) -> str:
+    def __repr__(self):
         return str(self)
 
 
@@ -161,12 +161,13 @@ class Property:
             self.naming == other.naming and \
             self.properties == other.properties
 
-    def __repr__(self) -> str:
+    def __repr__(self):
         return str(self)
 
 
 # TODO: refactor the equation system to get rid of the callback -thing
 # instead get the list of connection points as a return value from .evalute()
+
 
 class PropertyGraph:
     """Generate and represent domain model classes via category-like equations
@@ -270,14 +271,23 @@ If you write it by using the provided equation system, it looks like this:
     True
 
 In other words: if you manage to minimize the equation by finding the common divisors, you can get the optimal class composition
-structure from it. 
+structure from it.
+
+In case you are wondering how to spot the potential intermediate constructs from the model, the trick is to search for the 
+summed product terms which end to a term O:
+
+    >>> for term in g.extract_intermediate_terms(second_model_simplified):
+    ...   print(term)
+    (((C(speed)) + ((C(speed_limit)) * (O))) * ((C(distance)) + (C(duration)))) * (O)
+    ((C(distance)) + (C(duration))) * (O)
+
 
     """
 
     def __init__(self):
         self.clear()
         self.I, self.O, self.C = from_operator(self._connect)
- 
+
 
     def clear(self):
         """
@@ -307,6 +317,12 @@ structure from it.
         (self.O * term * self.O).evaluate()
         yield from self.properties
 
+    def extract_intermediate_terms(self, term):
+        for intermediate_term in get_topmost_tail_products(term):
+            if not intermediate_term in [term, self.O, self.I]:
+                if self.O * intermediate_term != term:
+                    yield  intermediate_term
+                
 
     def _update_naming(self, name):
         naming = Naming(name)
