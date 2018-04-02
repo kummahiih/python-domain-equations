@@ -47,6 +47,13 @@ class Naming:
         Name for class
         """
         return self._class_name
+    
+    @property
+    def interface_name(self) -> str:
+        """
+        Name for class
+        """
+        return "I" + self._class_name
 
     def __eq__(self, other):
         return isinstance(other, Naming) and \
@@ -187,7 +194,7 @@ class NamedProperty:
     def __repr__(self):
         return str(self)
 
-
+# TODO: wtf is python's description protocol?
 class InterfaceGenerator:
     @staticmethod
     def get_class_template(naming: Naming):
@@ -197,13 +204,14 @@ class InterfaceGenerator:
 
         >>> t = InterfaceGenerator.get_class_template(Naming("distance"))
         >>> t.__name__
-        'Distance'
+        'IDistance'
 
         """
 
         class ClassTemplate(metaclass=abc.ABCMeta):
             pass
-        ClassTemplate.__name__ = naming.class_name
+        ClassTemplate.__name__ = naming.interface_name
+        ClassTemplate.__qualname__ = naming.interface_name
         return ClassTemplate
 
     @staticmethod
@@ -366,6 +374,19 @@ product terms which end to the terminator O:
     (((C(speed)) + ((C(speed_limit)) * (O))) * ((C(distance)) + (C(duration)))) * (O)
     ((C(distance)) + (C(duration))) * (O)
 
+And of course it is possible to generate abstract class definitions from the model:
+
+    >>> interfaces = g.get_abstract_classes()
+    >>> interfaces
+    namespace(IDistance=<class '__main__.IDistance'>, IDuration=<class '__main__.IDuration'>, IFine=<class '__main__.IFine'>, IMonthlyIncome=<class '__main__.IMonthlyIncome'>, ISmallFine=<class '__main__.ISmallFine'>, ISpeed=<class '__main__.ISpeed'>, ISpeedLimit=<class '__main__.ISpeedLimit'>)
+
+And if you inherit em, they work as abstract classes should:
+
+    >>> class Fine(interfaces.IFine): pass
+    >>> f = Fine()
+    Traceback (most recent call last):
+    ...
+    TypeError: Can't instantiate abstract class Fine with abstract methods monthly_income, speed, speed_limit
 
     """
 
@@ -431,17 +452,15 @@ product terms which end to the terminator O:
         self.properties_by_value_name[source.value_name] = component_list
 
 
-def get_class_system(self, property_graph: PropertyGraph= None):
-    if property_graph is None:
-        raise ValueError('property_graph shoul not be None')
-    
-    
+    def get_abstract_classes(self):
+        """
+        Generate abstract class definitions for the defined properties
+        """
+        types_dict = dict()
+        for class_definition in self.properties:
+            types_dict[class_definition.naming.interface_name] = InterfaceGenerator.generate_abstract_class(class_definition)
+        return types.SimpleNamespace(**types_dict)
 
-
-        
-
-
-        
 
 
 if __name__ == '__main__':
