@@ -3,32 +3,13 @@
    @license: MIT <http://www.opensource.org/licenses/mit-license.php>
 """
 
-from category_equations import from_operator, get_topmost_tail_products
 import re
+import abc
+import types
+import copy
 
+from category_equations import from_operator, get_topmost_tail_products
 
-class _StringOperations:
-    @staticmethod
-    def camel_case(word: str):
-        """
-        >>> _StringOperations.camel_case("some_words")
-        'SomeWords'
-        """
-
-        return "".join(map(_StringOperations.capitalize, word.split("_")))
-
-    @staticmethod
-    def capitalize(word: str):
-        """
-        >>> _StringOperations.capitalize("")
-        ''
-
-        >>> _StringOperations.capitalize("foo")
-        'Foo'
-        """
-        if word == "":
-            return word
-        return word[0].upper() + word[1:]
 
 
 class Naming:
@@ -38,12 +19,12 @@ class Naming:
     def __init__(self, name: str):
         """
         >>> Naming("foo_bar")
-        {"type": "FooBar", "value": "foo_bar"}
+        {"type": "FooBar", "value": "foo_bar", "docstring": "foo bar"}
         """
-        if not isinstance(name, str) or not re.match(r'[a-z_]+', name):
-            raise ValueError("name should be a non empty lowercase string matching [a-z_]+")
+        if not isinstance(name, str) or not re.match(r'[a-z][a-z_]*', name):
+            raise ValueError("name should be a non empty lowercase string matching [a-z][a-z_]*")
         self._value_name = name
-        self._class_name = _StringOperations.camel_case(name)
+        self._class_name = Naming.camel_case(name)
         self._components = set()
 
     @property
@@ -52,6 +33,13 @@ class Naming:
         Name for values
         """
         return self._value_name
+    
+    @property
+    def docstring_name(self) -> str:
+        """
+        Name for docstring
+        """
+        return self._value_name.replace('_', ' ')
 
     @property
     def class_name(self) -> str:
@@ -68,10 +56,32 @@ class Naming:
         return self.value_name.__hash__()
 
     def __str__(self)  -> str:
-        return '{{"type": "{}", "value": "{}"}}'.format(self.class_name, self.value_name)
+        return '{{"type": "{}", "value": "{}", "docstring": "{}"}}'.format(self.class_name, self.value_name, self.docstring_name)
 
     def __repr__(self):
         return str(self)
+        
+    @staticmethod
+    def camel_case(word: str):
+        """
+        >>> Naming.camel_case("some_words")
+        'SomeWords'
+        """
+
+        return "".join(map(Naming.capitalize, word.split("_")))
+
+    @staticmethod
+    def capitalize(word: str):
+        """
+        >>> Naming.capitalize("")
+        ''
+
+        >>> Naming.capitalize("foo")
+        'Foo'
+        """
+        if word == "":
+            return word
+        return word[0].upper() + word[1:]
 
 
 class PropertyList:
@@ -83,6 +93,9 @@ class PropertyList:
     >>> c.add(Naming("foo"))
     >>> c
     ["Bar", "Foo", "FooBar"]
+    
+    >>> c == copy.copy(c)
+    True
 
     """
     def __init__(self):
@@ -105,6 +118,10 @@ class PropertyList:
         property_list.sort(key=lambda c: c.class_name)
         return property_list
 
+    def __eq__(self, other):
+        return isinstance(other, PropertyList) and \
+            self.properties == other.properties
+
     def __str__(self) -> str:
         return "[{}]".format(
             ", ".join(
@@ -116,17 +133,23 @@ class PropertyList:
         return str(self)
 
 
-class Property:
+class NamedProperty:
     """
     >>> cl = PropertyList()
     >>> cl.add(Naming("distance"))
     >>> cl.add(Naming("duration"))
-    >>> c = Property(Naming("speed"), cl)
+    >>> c = NamedProperty(Naming("speed"), cl)
     >>> c
-    {"naming": {"type": "Speed", "value": "speed"}, "properties": ["Distance", "Duration"]}
-    >>> c = Property(Naming("speed"), None)
-    >>> c
-    {"naming": {"type": "Speed", "value": "speed"}}
+    {"naming": {"type": "Speed", "value": "speed", "docstring": "speed"}, "properties": ["Distance", "Duration"]}
+    >>> d = NamedProperty(Naming("speed"), None)
+    >>> d
+    {"naming": {"type": "Speed", "value": "speed", "docstring": "speed"}}
+
+    >>> c == NamedProperty(Naming("speed"), cl)
+    True
+
+    >>> c == NamedProperty(Naming("foo"), cl)
+    False
 
     """
 
@@ -157,7 +180,7 @@ class Property:
             self._property_list)
 
     def __eq__(self, other):
-        return isinstance(other, Property) and \
+        return isinstance(other, NamedProperty) and \
             self.naming == other.naming and \
             self.properties == other.properties
 
@@ -165,9 +188,71 @@ class Property:
         return str(self)
 
 
-# TODO: refactor the equation system to get rid of the callback -thing
-# instead get the list of connection points as a return value from .evalute()
+class InterfaceGenerator:
+    @staticmethod
+    def get_class_template(naming: Naming):
+        """
+        >>> InterfaceGenerator.get_class_template(Naming("distance")) == InterfaceGenerator.get_class_template(Naming("distance"))
+        False
 
+        >>> t = InterfaceGenerator.get_class_template(Naming("distance"))
+        >>> t.__name__
+        'Distance'
+
+        """
+
+        class ClassTemplate(metaclass=abc.ABCMeta):
+            pass
+        ClassTemplate.__name__ = naming.class_name
+        return ClassTemplate
+
+    @staticmethod
+    def generate_abstract_class(class_naming: NamedProperty):
+        """
+        >>> cl = PropertyList()
+        >>> cl.add(Naming("distance"))
+        >>> cl.add(Naming("duration"))
+        >>> c = NamedProperty(Naming("speed"), cl)
+        >>> ISpeed = InterfaceGenerator.generate_abstract_class(c)
+        >>> class Speed(ISpeed, types.SimpleNamespace):
+        ...     def __init__(self, distance, duration):
+        ...         super().__init__(distance=distance, duration=duration)
+        >>> s = Speed(1,2)
+        >>> s
+        Speed(distance=1, duration=2)
+        >>> class Speed(ISpeed):
+        ...  def __init__(self):
+        ...    super().__init__()
+        >>> s = Speed()
+        Traceback (most recent call last):
+        ...
+        TypeError: Can't instantiate abstract class Speed with abstract methods distance, duration
+        """
+        template = InterfaceGenerator.get_class_template(class_naming.naming)
+        getters = set()
+
+        for sub_property_naming in class_naming.properties:
+            getters.add(sub_property_naming.value_name)
+
+            def getter(self):
+                raise NotImplementedError("Getter for property {} is not impplemented".format(
+                    sub_property_naming.value_name))
+            getter.__name__ = sub_property_naming.value_name
+            getter = abc.abstractmethod(getter)
+
+            setattr(template, sub_property_naming.value_name, getter)
+            doc_str = "The {} of the {} instance.".format(
+                sub_property_naming.docstring_name, class_naming.naming.docstring_name)
+
+            p = property(fget=getter, doc=doc_str)
+
+            setattr(template, sub_property_naming.value_name, p)
+
+        template.__abstractmethods__ = frozenset(getters)
+
+        return template
+
+# TODO: get rid of the callback -thing
 
 class PropertyGraph:
     """Generate and represent domain model classes via category-like equations
@@ -205,16 +290,16 @@ have the properties set into the graph g like this:
 
     >>> for i in g.get_properties_from( speed*(distance+duration) ):
     ...  print(i)
-    {"naming": {"type": "Distance", "value": "distance"}}
-    {"naming": {"type": "Duration", "value": "duration"}}
-    {"naming": {"type": "Speed", "value": "speed"}, "properties": ["Distance", "Duration"]}
+    {"naming": {"type": "Distance", "value": "distance", "docstring": "distance"}}
+    {"naming": {"type": "Duration", "value": "duration", "docstring": "duration"}}
+    {"naming": {"type": "Speed", "value": "speed", "docstring": "speed"}, "properties": ["Distance", "Duration"]}
 
 
     >>> for i in g.properties:
     ...  print(i)
-    {"naming": {"type": "Distance", "value": "distance"}}
-    {"naming": {"type": "Duration", "value": "duration"}}
-    {"naming": {"type": "Speed", "value": "speed"}, "properties": ["Distance", "Duration"]}
+    {"naming": {"type": "Distance", "value": "distance", "docstring": "distance"}}
+    {"naming": {"type": "Duration", "value": "duration", "docstring": "duration"}}
+    {"naming": {"type": "Speed", "value": "speed", "docstring": "speed"}, "properties": ["Distance", "Duration"]}
 
 For fines you have to know (at least in Finland) also:
 
@@ -224,12 +309,12 @@ For fines you have to know (at least in Finland) also:
     >>> first_model = O * (speed*(distance + duration) + fine*(speed + monthly_income + speed_limit)) * O
     >>> for i in g.get_properties_from(first_model):
     ...  print(i)
-    {"naming": {"type": "Distance", "value": "distance"}}
-    {"naming": {"type": "Duration", "value": "duration"}}
-    {"naming": {"type": "Fine", "value": "fine"}, "properties": ["MonthlyIncome", "Speed", "SpeedLimit"]}
-    {"naming": {"type": "MonthlyIncome", "value": "monthly_income"}}
-    {"naming": {"type": "Speed", "value": "speed"}, "properties": ["Distance", "Duration"]}
-    {"naming": {"type": "SpeedLimit", "value": "speed_limit"}}
+    {"naming": {"type": "Distance", "value": "distance", "docstring": "distance"}}
+    {"naming": {"type": "Duration", "value": "duration", "docstring": "duration"}}
+    {"naming": {"type": "Fine", "value": "fine", "docstring": "fine"}, "properties": ["MonthlyIncome", "Speed", "SpeedLimit"]}
+    {"naming": {"type": "MonthlyIncome", "value": "monthly_income", "docstring": "monthly income"}}
+    {"naming": {"type": "Speed", "value": "speed", "docstring": "speed"}, "properties": ["Distance", "Duration"]}
+    {"naming": {"type": "SpeedLimit", "value": "speed_limit", "docstring": "speed limit"}}
 
 Because these equations are the same (note the usage of the O at the begin and end)
 
@@ -241,12 +326,12 @@ also the generated properties are the same:
 
     >>> for i in g.get_properties_from(simplified_model):
     ...  print(i)
-    {"naming": {"type": "Distance", "value": "distance"}}
-    {"naming": {"type": "Duration", "value": "duration"}}
-    {"naming": {"type": "Fine", "value": "fine"}, "properties": ["MonthlyIncome", "Speed", "SpeedLimit"]}
-    {"naming": {"type": "MonthlyIncome", "value": "monthly_income"}}
-    {"naming": {"type": "Speed", "value": "speed"}, "properties": ["Distance", "Duration"]}
-    {"naming": {"type": "SpeedLimit", "value": "speed_limit"}}
+    {"naming": {"type": "Distance", "value": "distance", "docstring": "distance"}}
+    {"naming": {"type": "Duration", "value": "duration", "docstring": "duration"}}
+    {"naming": {"type": "Fine", "value": "fine", "docstring": "fine"}, "properties": ["MonthlyIncome", "Speed", "SpeedLimit"]}
+    {"naming": {"type": "MonthlyIncome", "value": "monthly_income", "docstring": "monthly income"}}
+    {"naming": {"type": "Speed", "value": "speed", "docstring": "speed"}, "properties": ["Distance", "Duration"]}
+    {"naming": {"type": "SpeedLimit", "value": "speed_limit", "docstring": "speed limit"}}
 
 Nice and simple, but then the reality starts to kick in and you have to model the real thing where you have for example
 different rules for small fines which do not need monthly income:
@@ -255,13 +340,13 @@ different rules for small fines which do not need monthly income:
     >>> second_model =O*(fine* (speed*(distance + duration)*O + monthly_income + speed_limit) + small_fine*(speed + speed_limit))*O
     >>> for i in g.get_properties_from(second_model):
     ...  print(i)
-    {"naming": {"type": "Distance", "value": "distance"}}
-    {"naming": {"type": "Duration", "value": "duration"}}
-    {"naming": {"type": "Fine", "value": "fine"}, "properties": ["MonthlyIncome", "Speed", "SpeedLimit"]}
-    {"naming": {"type": "MonthlyIncome", "value": "monthly_income"}}
-    {"naming": {"type": "SmallFine", "value": "small_fine"}, "properties": ["Speed", "SpeedLimit"]}
-    {"naming": {"type": "Speed", "value": "speed"}, "properties": ["Distance", "Duration"]}
-    {"naming": {"type": "SpeedLimit", "value": "speed_limit"}}
+    {"naming": {"type": "Distance", "value": "distance", "docstring": "distance"}}
+    {"naming": {"type": "Duration", "value": "duration", "docstring": "duration"}}
+    {"naming": {"type": "Fine", "value": "fine", "docstring": "fine"}, "properties": ["MonthlyIncome", "Speed", "SpeedLimit"]}
+    {"naming": {"type": "MonthlyIncome", "value": "monthly_income", "docstring": "monthly income"}}
+    {"naming": {"type": "SmallFine", "value": "small_fine", "docstring": "small fine"}, "properties": ["Speed", "SpeedLimit"]}
+    {"naming": {"type": "Speed", "value": "speed", "docstring": "speed"}, "properties": ["Distance", "Duration"]}
+    {"naming": {"type": "SpeedLimit", "value": "speed_limit", "docstring": "speed limit"}}
 
 Here one could create an intermediate class and use it as a member on both fines or inherit the small fine and fine from the same base class.
 If you write it by using the provided equation system, it looks like this:
@@ -273,8 +358,8 @@ If you write it by using the provided equation system, it looks like this:
 In other words: if you manage to minimize the equation by finding the common divisors, you can get the optimal class composition
 structure from it.
 
-In case you are wondering how to spot the potential intermediate constructs from the model, the trick is to search for the 
-summed product terms which end to a term O:
+In case you are wondering how to spot the potential intermediate constructs from the model equation, the trick is to search for the
+product terms which end to the terminator O:
 
     >>> for term in g.extract_intermediate_terms(second_model_simplified):
     ...   print(term)
@@ -306,7 +391,7 @@ summed product terms which end to a term O:
         for value_name in keys:
             naming = self.namings_by_value_name[value_name]
             properties = self.properties_by_value_name.get(value_name, None)
-            yield Property(naming, properties)
+            yield NamedProperty(naming, properties)
 
     def get_properties_from(self, term):
         """
@@ -346,6 +431,17 @@ summed product terms which end to a term O:
         self.properties_by_value_name[source.value_name] = component_list
 
 
+def get_class_system(self, property_graph: PropertyGraph= None):
+    if property_graph is None:
+        raise ValueError('property_graph shoul not be None')
+    
+    
+
+
+        
+
+
+        
 
 
 if __name__ == '__main__':
