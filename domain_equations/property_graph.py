@@ -276,6 +276,9 @@ can be simplified to get the optimal class structure for the modeled domain.
 
 More details of the equation system can be found from the site: https://github.com/kummahiih/python-category-equations
 
+As shown on the end of the next section this notation might also allow you to develope your domain model while coding with less 
+refactoring.
+
 ## Usage
 
 To model your domain, create a property graph:
@@ -387,6 +390,26 @@ And if you inherit em, they work as abstract classes should:
     Traceback (most recent call last):
     ...
     TypeError: Can't instantiate abstract class Fine with abstract methods monthly_income, speed, speed_limit
+
+
+The nice thing with these unoptimized abstact classes  is, that they do not change as long as the modeling equation wont change. In other words:
+
+    >>> second_model_simplified == second_model
+    True
+    
+means that these behave in similar way:
+
+    >>> _ = g.get_properties_from(second_model_simplified)
+    >>> interfaces = g.get_abstract_classes()
+    >>> class Fine(interfaces.IFine): pass
+    >>> f = Fine()
+    Traceback (most recent call last):
+    ...
+    TypeError: Can't instantiate abstract class Fine with abstract methods monthly_income, speed, speed_limit
+
+
+When you dont yet know your domain model well, with this you could write your code first and clean the 
+inheritance or composition arrangements later without changing a bit from the abstract classes you actually use.
 
     """
 
