@@ -28,6 +28,6 @@ setup(
     classifiers=[
         'License :: OSI Approved :: MIT License',
         'Programming Language :: Python :: 3.6'],
-    install_requires=['python-category-equations == 0.3.7']
+    install_requires=['python-category-equations == 0.3.9']
 )
 
