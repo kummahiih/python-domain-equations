@@ -120,7 +120,7 @@ And of course it is possible to generate abstract class definitions from the mod
 
     >>> interfaces = g.get_abstract_classes()
     >>> interfaces
-    namespace(IDistance=<class '__main__.IDistance'>, IDuration=<class '__main__.IDuration'>, IFine=<class '__main__.IFine'>, IMonthlyIncome=<class '__main__.IMonthlyIncome'>, ISmallFine=<class '__main__.ISmallFine'>, ISpeed=<class '__main__.ISpeed'>, ISpeedLimit=<class '__main__.ISpeedLimit'>)
+    namespace(IDistance=<class 'domain_equations.interface_generator.IDistance'>, IDuration=<class 'domain_equations.interface_generator.IDuration'>, IFine=<class 'domain_equations.interface_generator.IFine'>, IMonthlyIncome=<class 'domain_equations.interface_generator.IMonthlyIncome'>, ISmallFine=<class 'domain_equations.interface_generator.ISmallFine'>, ISpeed=<class 'domain_equations.interface_generator.ISpeed'>, ISpeedLimit=<class 'domain_equations.interface_generator.ISpeedLimit'>)
 
 And if you inherit em, they work as abstract classes should:
 
@@ -154,29 +154,29 @@ The container types are supported this far:
 
     >>> R = g.R
     >>> fine_container = R('fine')
-    >>> fine_container
+    >>> fine_container * fine
     (C(fine_container)) * (C(fine))
 
 Or
 
     >>> g  = PropertyGraph()
-    >>> I, O, C, N, R = g.I, g.O, g.C, g.N, g.R
+    >>> I, O, C, N, R, T = g.I, g.O, g.C, g.N, g.R, g.T
 
 
-    >>> knife = N(name="knife", plural="knives")
+    >>> knife = N(name="knife", plural="knives", module_name="accessories")
     >>> knife
-    C(knife)
-    >>> knife_container = R('knife')
-    >>> model = O * knife_container * O
+    C(accessories.Knife)
+    >>> knife_container = R('knife', item_module="accessories")
+    >>> model = O * knife_container * knife * O
     >>> model
-    ((O) * ((C(knife_container)) * (C(knife)))) * (O)
+    (((O) * (C(knife_container))) * (C(accessories.Knife))) * (O)
 
 And the abstract class generation works as well:
 
     >>> for term in g.get_properties_from(model):
     ...   print(term)
-    {"naming": {"type": "Knife", "value": "knife", "plural": "knives", "docstring": "knife"}}
-    {"naming": {"type": "KnifeContainer", "value": "knife_container", "plural": "knife_containers", "docstring": "knife container"}, "properties": ["Knife"]}
+    {"naming": {"type": "KnifeContainer", "value": "knife_container", "plural": "knife_containers", "docstring": "knife container"}, "properties": ["accessories.Knife"]}
+    {"naming": {"type": "accessories.Knife", "value": "knife", "plural": "knives", "docstring": "knife"}}
 
 
     >>> interfaces = g.get_abstract_classes()
@@ -185,6 +185,101 @@ And the abstract class generation works as well:
     Traceback (most recent call last):
     ...
     TypeError: Can't instantiate abstract class KnifeContainer with abstract methods knives
+
+
+Base types are can be taken here with a decorator 'T' obtained above and they work with modules like this:
+
+    >>> g  = PropertyGraph()
+    >>> I, O, C, N, R, T = g.I, g.O, g.C, g.N, g.R, g.T
+    >>> knife = N(name="knife", plural="knives", module_name="accessories")
+    >>> bytes = T('bytes')
+    >>> for term in g.buildin_types:
+    ...   print(term)
+    {"type": "bytes"}
+
+    >>> model = O *(R('knife', item_module="accessories", container_module="kitchen") * knife * O + knife * bytes) * O
+    >>> model
+    ((O) * ((((C(kitchen.KnifeContainer)) * (C(accessories.Knife))) * (O)) + ((C(accessories.Knife)) * (C(bytes))))) * (O)
+
+    >>> for term in g.get_properties_from(model):
+    ...   print(term)
+    {"naming": {"type": "accessories.Knife", "value": "knife", "plural": "knives", "docstring": "knife"}, "properties": ["bytes"]}
+    {"naming": {"type": "kitchen.KnifeContainer", "value": "knife_container", "plural": "knife_containers", "docstring": "knife container"}, "properties": ["accessories.Knife"]}
+
+    >>> for term in g.buildin_types:
+    ...   print(term)
+    {"type": "bytes"}
+
+
+    >>> for module in g.modules:
+    ...   print(module)
+    {"module": accessories, "types": ["accessories.Knife"]}
+    {"module": kitchen, "types": ["kitchen.KnifeContainer"]}
+
+
+    >>> for module in g.modules:
+    ...    print("-"*20)
+    ...    print(module.module_name)
+    ...    print("-"*20)
+    ...    print(ProtobufGenerator.get_property_file_content(module))
+    --------------------
+    accessories
+    --------------------
+    syntax = "proto2";
+    package accessories;
+    --------------------
+    kitchen
+    --------------------
+    syntax = "proto2";
+    package kitchen;
+    import accessories;
+    message KnifeContainer {
+        repeated bytes knives = 1;
+    }
+
+
+
+    >>> g  = PropertyGraph()
+    >>> I, O, C, N, R, T = g.I, g.O, g.C, g.N, g.R, g.T
+    >>> knife = N(name="knife", plural="knives", module_name="accessories")
+    >>> bytes = T('bytes')
+    >>> length_type = T('float')
+    >>> knife_def = knife * ( C("name") * bytes * O + C("length") * length_type * O)
+    >>> knife_container_def = R('knife', item_module="accessories", container_module="kitchen") * knife * O
+    >>> model = O *(knife_container_def + knife_def ) * O
+    >>> model.evaluate()
+    >>> for term in g.properties:
+    ...   print(term)
+    {"naming": {"type": "Length", "value": "length", "plural": "lengths", "docstring": "length"}, "properties": ["float"]}
+    {"naming": {"type": "Name", "value": "name", "plural": "names", "docstring": "name"}, "properties": ["bytes"]}
+    {"naming": {"type": "accessories.Knife", "value": "knife", "plural": "knives", "docstring": "knife"}, "properties": ["Length", "Name"]}
+    {"naming": {"type": "kitchen.KnifeContainer", "value": "knife_container", "plural": "knife_containers", "docstring": "knife container"}, "properties": ["accessories.Knife"]}
+
+
+    >>> for module in g.modules:
+    ...    print("-"*20)
+    ...    print(module.module_name + ".proto")
+    ...    print("-"*20)
+    ...    print(ProtobufGenerator.get_property_file_content(module))
+    --------------------
+    accessories.proto
+    --------------------
+    syntax = "proto2";
+    package accessories;
+    message Knife {
+        required float length = 1;
+        required bytes name = 2;
+    }
+    --------------------
+    kitchen.proto
+    --------------------
+    syntax = "proto2";
+    package kitchen;
+    import accessories;
+    message KnifeContainer {
+        repeated Knife knives = 1;
+    }
+
 
 
     

@@ -1,376 +1,16 @@
 """
-   @copyright: 2018 by Pauli Rikula <pauli.rikula@gmail.com>
+   @copyright: 2018-2019 by Pauli Rikula <pauli.rikula@gmail.com>
    @license: MIT <http://www.opensource.org/licenses/mit-license.php>
 """
 
-import re
-import abc
 import types
-import copy
 
 from category_equations import from_operator, get_topmost_tail_products
 
-
-
-class Naming:
-    """
-    Representation of type and variable naming
-    """
-    def __init__(self, name: str, plural:str = None, module_name: str=None):
-        """
-        >>> Naming("foo_bar")
-        {"type": "FooBar", "value": "foo_bar", "plural": "foo_bars", "docstring": "foo bar"}
-        >>> Naming("foo_bar", module_name="module")
-        {"type": "module.FooBar", "value": "foo_bar", "plural": "foo_bars", "docstring": "foo bar"}
-        """
-        if not isinstance(name, str) or not re.match(r'[a-z][a-z_]*', name):
-            raise ValueError("name should be a non empty lowercase string matching [a-z][a-z_]*")
-        if plural is not None and (not isinstance(plural, str) or not re.match(r'[a-z][a-z_]*', plural)):
-            raise ValueError("name plural be a non empty lowercase string matching [a-z][a-z_]*")
-        self._value_name = name
-        self._plural_value_name = plural if plural is not None else Naming.plural(name)
-        self._module_name = module_name
-        self._class_name = (module_name + "." if module_name != None else "") + Naming.camel_case(name)
-        self._components = set()
-        
-
-    @property
-    def value_name(self) -> str:
-        """
-        Name for values
-        """
-        return self._value_name
-
-    @property
-    def plural_value_name(self):
-        """
-        Name for plural values
-        """
-        return self._plural_value_name
-    
-    @property
-    def docstring_name(self) -> str:
-        """
-        Name for docstring
-        """
-        return self._value_name.replace('_', ' ')
-    
-    @property
-    def module_name(self) -> str:
-        """
-        Name for module of the class
-        >>> Naming("foo_bar", module_name="module").module_name
-        'module'
-        """
-        return self._module_name if self._module_name is not None else ""
-
-    @property
-    def class_name(self) -> str:
-        """
-        Name for class
-        """
-        return self._class_name
-    
-    @property
-    def interface_name(self) -> str:
-        """
-        Name for class
-        """
-        return "I" + self._class_name
-
-    def __eq__(self, other):
-        return isinstance(other, Naming) and \
-            self.value_name == other.value_name
-
-    def __hash__(self):
-        return self.value_name.__hash__()
-
-    def __str__(self)  -> str:
-        return '{{"type": "{}", "value": "{}", "plural": "{}", "docstring": "{}"}}'.format(self.class_name, self.value_name, self.plural_value_name, self.docstring_name)
-
-    def __repr__(self):
-        return str(self)
-    
-    def __lt__(self, another):
-        """
-        >>> Naming("foo_bar") < Naming("foo")
-        False
-        >>> Naming("foo") < Naming("foo_bar")
-        True
-        """
-        return self.value_name < another.value_name
-
-        
-    @staticmethod
-    def camel_case(word: str):
-        """
-        >>> Naming.camel_case("some_words")
-        'SomeWords'
-        """
-
-        return "".join(map(Naming.capitalize, word.split("_")))
-
-    @staticmethod
-    def capitalize(word: str):
-        """
-        >>> Naming.capitalize("")
-        ''
-
-        >>> Naming.capitalize("foo")
-        'Foo'
-        """
-        if word == "":
-            return word
-        return word[0].upper() + word[1:]
-    
-    @staticmethod
-    def plural(word: str) -> str:
-        """
-        >>> Naming.plural('test')
-        'tests'
-
-        >>> Naming.plural('phalanx')
-        'phalanxes'
-
-        >> Naming.plural('ssh')
-        'sshes'
-
-        >> Naming.plural('snakes')
-        'snakeses'
-
-        >> Naming.plural('py')
-        'pyses'
-
-        >> Naming.plural('way')
-        'ways'
-
-        """
-        if word[-1] in ['x', 's']:
-                return word + 'es'
-        if len(word) >= 2:
-            if word[-1] == 'y':
-                if word[-2] in ['a', 'e', 'i', 'o', 'u']:
-                    return word + "s"
-                else:
-                    return word[:-1] + "es"
-            if word[-2:] in ["sh", "ch"]:
-                return word + 'es'
-
-        return word + "s"
-            
-class ContainerNaming(Naming):
-    def __init__(self, naming:Naming, module_name:str = None):
-        if not isinstance(naming, Naming):
-            raise ValueError("containers can be made only from Namings")
-        self._item_value_name = naming.value_name
-        name = naming.value_name + "_container"
-
-        super().__init__(name=name, module_name=module_name)
-
-    @property
-    def item_value_name(self):
-        return self._item_value_name
-
-
-
-
-class PropertyList:
-    """
-    >>> c = PropertyList()
-    >>> c.add(Naming("foo_bar"))
-    >>> c.add(Naming("bar"))
-    >>> c.add(Naming("foo"))
-    >>> c.add(Naming("foo"))
-    >>> c
-    ["Bar", "Foo", "FooBar"]
-    
-    >>> c == copy.copy(c)
-    True
-
-    """
-    def __init__(self):
-        self._properties = set()
-
-    def add(self, naming: Naming):
-        """
-        Add naming component
-        """
-        if not isinstance(naming, Naming):
-            raise ValueError("name should be type of Naming")
-        self._properties.add(naming)
-
-    @property
-    def properties(self):
-        """
-        The naming components in sorted list
-        """
-        property_list = list(self._properties)
-        property_list.sort(key=lambda c: c.class_name)
-        return property_list
-
-    def __eq__(self, other):
-        return isinstance(other, PropertyList) and \
-            self.properties == other.properties
-
-    def __str__(self) -> str:
-        return "[{}]".format(
-            ", ".join(
-                map(
-                    lambda c: '"{}"'.format(c.class_name),
-                    self.properties)))
-
-    def __repr__(self):
-        return str(self)
-
-
-class NamedProperty:
-    """
-    >>> cl = PropertyList()
-    >>> cl.add(Naming("distance"))
-    >>> cl.add(Naming("duration"))
-    >>> c = NamedProperty(Naming("speed"), cl)
-    >>> c
-    {"naming": {"type": "Speed", "value": "speed", "plural": "speeds", "docstring": "speed"}, "properties": ["Distance", "Duration"]}
-    >>> d = NamedProperty(Naming("speed"), None)
-    >>> d
-    {"naming": {"type": "Speed", "value": "speed", "plural": "speeds", "docstring": "speed"}}
-
-    >>> c == NamedProperty(Naming("speed"), cl)
-    True
-
-    >>> c == NamedProperty(Naming("foo"), cl)
-    False
-
-    """
-
-    def __init__(self, naming: Naming, property_list: PropertyList):
-        if not isinstance(naming, Naming):
-            raise ValueError()
-        if not isinstance(property_list, PropertyList) and property_list is not None:
-            raise ValueError()
-        self._naming = naming
-        self._property_list = property_list
-
-    @property
-    def naming(self):
-        return self._naming
-
-    @property
-    def properties(self):
-        if self._property_list is None:
-            return []
-        return self._property_list.properties
-
-    def __str__(self) -> str:
-        if self._property_list is None:
-            return '{{"naming": {}}}'.format(self.naming)
-
-        return '{{"naming": {}, "properties": {}}}'.format(
-            self.naming,
-            self._property_list)
-
-    def __eq__(self, other):
-        return isinstance(other, NamedProperty) and \
-            self.naming == other.naming and \
-            self.properties == other.properties
-
-    def __repr__(self):
-        return str(self)
-
-
-
-
-# TODO: wtf is python's description protocol?
-class InterfaceGenerator:
-    @staticmethod
-    def get_class_template(naming: Naming):
-        """
-        >>> InterfaceGenerator.get_class_template(Naming("distance")) == InterfaceGenerator.get_class_template(Naming("distance"))
-        False
-
-        >>> t = InterfaceGenerator.get_class_template(Naming("distance"))
-        >>> t.__name__
-        'IDistance'
-
-        """
-
-        class ClassTemplate(metaclass=abc.ABCMeta):
-            pass
-        ClassTemplate.__name__ = naming.interface_name
-        ClassTemplate.__qualname__ = naming.interface_name
-        return ClassTemplate
-
-    @staticmethod
-    def generate_abstract_class(class_naming: NamedProperty):
-        """
-        >>> cl = PropertyList()
-        >>> cl.add(Naming("distance"))
-        >>> cl.add(Naming("duration"))
-        >>> c = NamedProperty(Naming("speed"), cl)
-        >>> ISpeed = InterfaceGenerator.generate_abstract_class(c)
-        >>> class Speed(ISpeed, types.SimpleNamespace):
-        ...     def __init__(self, distance, duration):
-        ...         super().__init__(distance=distance, duration=duration)
-        >>> s = Speed(1,2)
-        >>> s
-        Speed(distance=1, duration=2)
-        >>> class Speed(ISpeed):
-        ...  def __init__(self):
-        ...    super().__init__()
-        >>> s = Speed()
-        Traceback (most recent call last):
-        ...
-        TypeError: Can't instantiate abstract class Speed with abstract methods distance, duration
-        """
-        template = InterfaceGenerator.get_class_template(class_naming.naming)
-        getters = set()
-
-        for sub_property_naming in class_naming.properties:
-            getters.add(sub_property_naming.value_name)
-
-            def getter(self):
-                raise NotImplementedError("Getter for property {} is not impplemented".format(
-                    sub_property_naming.value_name))
-            getter.__name__ = sub_property_naming.value_name
-            getter = abc.abstractmethod(getter)
-
-            setattr(template, sub_property_naming.value_name, getter)
-            doc_str = "The {} of the {} instance.".format(
-                sub_property_naming.docstring_name, class_naming.naming.docstring_name)
-
-            p = property(fget=getter, doc=doc_str)
-
-            setattr(template, sub_property_naming.value_name, p)
-
-        template.__abstractmethods__ = frozenset(getters)
-
-        return template
-    
-    @staticmethod
-    def generate_abstract_container(class_naming: NamedProperty, item_naming: Naming):
-        template = InterfaceGenerator.get_class_template(class_naming.naming)
-
-        items_name = str(item_naming.plural_value_name)
-
-        def getter(self):
-            raise NotImplementedError("Getter for property {} is not impplemented".format(
-                items_name))
-        getter.__name__ = items_name
-        getter = abc.abstractmethod(getter)
-
-        doc_str = "Returns all contained {} of the {} instance.".format(
-                item_naming.docstring_name, class_naming.naming.docstring_name)
-        setattr(template, items_name, getter)
-
-        p = property(fget=getter, doc=doc_str)
-
-        setattr(template, items_name, p)
-
-        template.__abstractmethods__ = frozenset([items_name])
-
-        #print(template.knives)
-        return template
-
+from .naming import Naming, ContainerNaming, TypeDescriptor
+from .namedproperty import NamedProperty, PropertyList, Module
+from .interface_generator import InterfaceGenerator
+from .protobuf_generator import ProtobufGenerator, ProtobufScalars
 
 
 # TODO: get rid of the callback -thing
@@ -496,7 +136,7 @@ And of course it is possible to generate abstract class definitions from the mod
 
     >>> interfaces = g.get_abstract_classes()
     >>> interfaces
-    namespace(IDistance=<class '__main__.IDistance'>, IDuration=<class '__main__.IDuration'>, IFine=<class '__main__.IFine'>, IMonthlyIncome=<class '__main__.IMonthlyIncome'>, ISmallFine=<class '__main__.ISmallFine'>, ISpeed=<class '__main__.ISpeed'>, ISpeedLimit=<class '__main__.ISpeedLimit'>)
+    namespace(IDistance=<class 'domain_equations.interface_generator.IDistance'>, IDuration=<class 'domain_equations.interface_generator.IDuration'>, IFine=<class 'domain_equations.interface_generator.IFine'>, IMonthlyIncome=<class 'domain_equations.interface_generator.IMonthlyIncome'>, ISmallFine=<class 'domain_equations.interface_generator.ISmallFine'>, ISpeed=<class 'domain_equations.interface_generator.ISpeed'>, ISpeedLimit=<class 'domain_equations.interface_generator.ISpeedLimit'>)
 
 And if you inherit em, they work as abstract classes should:
 
@@ -530,29 +170,29 @@ The container types are supported this far:
 
     >>> R = g.R
     >>> fine_container = R('fine')
-    >>> fine_container
+    >>> fine_container * fine
     (C(fine_container)) * (C(fine))
 
 Or
 
     >>> g  = PropertyGraph()
-    >>> I, O, C, N, R = g.I, g.O, g.C, g.N, g.R
+    >>> I, O, C, N, R, T = g.I, g.O, g.C, g.N, g.R, g.T
 
 
-    >>> knife = N(name="knife", plural="knives")
+    >>> knife = N(name="knife", plural="knives", module_name="accessories")
     >>> knife
-    C(knife)
-    >>> knife_container = R('knife')
-    >>> model = O * knife_container * O
+    C(accessories.Knife)
+    >>> knife_container = R('knife', item_module="accessories")
+    >>> model = O * knife_container * knife * O
     >>> model
-    ((O) * ((C(knife_container)) * (C(knife)))) * (O)
+    (((O) * (C(knife_container))) * (C(accessories.Knife))) * (O)
 
 And the abstract class generation works as well:
 
     >>> for term in g.get_properties_from(model):
     ...   print(term)
-    {"naming": {"type": "Knife", "value": "knife", "plural": "knives", "docstring": "knife"}}
-    {"naming": {"type": "KnifeContainer", "value": "knife_container", "plural": "knife_containers", "docstring": "knife container"}, "properties": ["Knife"]}
+    {"naming": {"type": "KnifeContainer", "value": "knife_container", "plural": "knife_containers", "docstring": "knife container"}, "properties": ["accessories.Knife"]}
+    {"naming": {"type": "accessories.Knife", "value": "knife", "plural": "knives", "docstring": "knife"}}
 
 
     >>> interfaces = g.get_abstract_classes()
@@ -563,51 +203,196 @@ And the abstract class generation works as well:
     TypeError: Can't instantiate abstract class KnifeContainer with abstract methods knives
 
 
+Base types are can be taken here with a decorator 'T' obtained above and they work with modules like this:
+
+    >>> g  = PropertyGraph()
+    >>> I, O, C, N, R, T = g.I, g.O, g.C, g.N, g.R, g.T
+    >>> knife = N(name="knife", plural="knives", module_name="accessories")
+    >>> bytes = T('bytes')
+    >>> for term in g.buildin_types:
+    ...   print(term)
+    {"type": "bytes"}
+
+    >>> model = O *(R('knife', item_module="accessories", container_module="kitchen") * knife * O + knife * bytes) * O
+    >>> model
+    ((O) * ((((C(kitchen.KnifeContainer)) * (C(accessories.Knife))) * (O)) + ((C(accessories.Knife)) * (C(bytes))))) * (O)
+
+    >>> for term in g.get_properties_from(model):
+    ...   print(term)
+    {"naming": {"type": "accessories.Knife", "value": "knife", "plural": "knives", "docstring": "knife"}, "properties": ["bytes"]}
+    {"naming": {"type": "kitchen.KnifeContainer", "value": "knife_container", "plural": "knife_containers", "docstring": "knife container"}, "properties": ["accessories.Knife"]}
+
+    >>> for term in g.buildin_types:
+    ...   print(term)
+    {"type": "bytes"}
+
+
+    >>> for module in g.modules:
+    ...   print(module)
+    {"module": accessories, "types": ["accessories.Knife"]}
+    {"module": kitchen, "types": ["kitchen.KnifeContainer"]}
+
+
+    >>> for module in g.modules:
+    ...    print("-"*20)
+    ...    print(module.module_name)
+    ...    print("-"*20)
+    ...    print(ProtobufGenerator.get_property_file_content(module))
+    --------------------
+    accessories
+    --------------------
+    syntax = "proto2";
+    package accessories;
+    --------------------
+    kitchen
+    --------------------
+    syntax = "proto2";
+    package kitchen;
+    import accessories;
+    message KnifeContainer {
+        repeated bytes knives = 1;
+    }
+
+
+
+    >>> g  = PropertyGraph()
+    >>> I, O, C, N, R, T = g.I, g.O, g.C, g.N, g.R, g.T
+    >>> knife = N(name="knife", plural="knives", module_name="accessories")
+    >>> bytes = T('bytes')
+    >>> length_type = T('float')
+    >>> knife_def = knife * ( C("name") * bytes * O + C("length") * length_type * O)
+    >>> knife_container_def = R('knife', item_module="accessories", container_module="kitchen") * knife * O
+    >>> model = O *(knife_container_def + knife_def ) * O
+    >>> model.evaluate()
+    >>> for term in g.properties:
+    ...   print(term)
+    {"naming": {"type": "Length", "value": "length", "plural": "lengths", "docstring": "length"}, "properties": ["float"]}
+    {"naming": {"type": "Name", "value": "name", "plural": "names", "docstring": "name"}, "properties": ["bytes"]}
+    {"naming": {"type": "accessories.Knife", "value": "knife", "plural": "knives", "docstring": "knife"}, "properties": ["Length", "Name"]}
+    {"naming": {"type": "kitchen.KnifeContainer", "value": "knife_container", "plural": "knife_containers", "docstring": "knife container"}, "properties": ["accessories.Knife"]}
+
+
+    >>> for module in g.modules:
+    ...    print("-"*20)
+    ...    print(module.module_name + ".proto")
+    ...    print("-"*20)
+    ...    print(ProtobufGenerator.get_property_file_content(module))
+    --------------------
+    accessories.proto
+    --------------------
+    syntax = "proto2";
+    package accessories;
+    message Knife {
+        required float length = 1;
+        required bytes name = 2;
+    }
+    --------------------
+    kitchen.proto
+    --------------------
+    syntax = "proto2";
+    package kitchen;
+    import accessories;
+    message KnifeContainer {
+        repeated Knife knives = 1;
+    }
+
+
+
     """
 
     def __init__(self):
         self.clear()
         self.I, self.O, self.C = from_operator(self._connect)
 
-        def repeated(name):
-            naming = Naming(name)
-            container = ContainerNaming(naming)
+        def repeated(name, container_module:str = None, item_module:str=None):
+            naming = Naming(name, module_name=item_module)
+            container = ContainerNaming(naming, module_name=container_module)
             # workaround to get the type right
-            self.namings_by_value_name[container.value_name] = container
-            return self.C(container.value_name) * self.C(name)
+            self.namings_by_class_name[container.class_name] = container
+            if container_module is None:
+                return self.C(container.value_name)
+            else:
+                return self.C(container.class_name)
         self.R = repeated
 
         def naming_getter(*args, **kvargs):
             naming = Naming(*args, **kvargs)
-            self.namings_by_value_name[naming.value_name] = naming
-            return self.C(naming.value_name)
+            self.namings_by_class_name[naming.class_name] = naming
+            if naming.module_name is None:
+                return self.C(naming.value_name)
+            else:
+                return self.C(naming.class_name)
         self.N = naming_getter
+
+        def buildin_getter(*args, **kvargs):
+            naming = TypeDescriptor(*args, **kvargs)
+            self.namings_by_class_name[naming.class_name] = naming
+            return self.C(naming.class_name)
+        self.T = buildin_getter
 
     def clear(self):
         """
         Clear the defined properties
         """
-        self.properties_by_value_name = {}
-        self.namings_by_value_name = {}
+        self.properties_by_class_name = {}
+        self.namings_by_class_name = {}
 
     @property
     def properties(self):
         """
         Creates the defined properties (iterator)
         """
-        keys = list(self.namings_by_value_name.keys())
+        keys = list(self.namings_by_class_name.keys())
         keys.sort()
-        for value_name in keys:
-            naming = self.namings_by_value_name[value_name]
-            properties = self.properties_by_value_name.get(value_name, None)
+        for class_name in keys:
+            naming = self.namings_by_class_name[class_name]
+            if type(naming) == TypeDescriptor:
+                continue
+            properties = self.properties_by_class_name.get(class_name, None)
             yield NamedProperty(naming, properties)
+
+    @property
+    def buildin_types(self):
+        """
+        Gives the used buildin types as iterator
+        """
+        for naming in self.namings_by_class_name.values():
+            if type(naming) == TypeDescriptor:
+                yield naming
+
+    @property
+    def modules(self):
+        """
+        Gives the used buildin types as iterator
+        """
+        modules = {}
+        for naming in self.namings_by_class_name.values():
+            if type(naming) == TypeDescriptor:
+                continue
+            pl = PropertyList()
+            if naming.module_name is None:
+                continue
+            modules.get(naming.module_name, pl)
+            pl.add(naming)
+            modules[naming.module_name] = pl
+        properties = list(self.properties)
+        for name, pl in modules.items():
+            yield Module(name, pl, properties)
+
 
     def get_properties_from(self, term):
         """
         Get the properties from the given term which has been done using the wrapper
         provided on the same class instance
         """
-        self.properties_by_value_name = {}
+        properties_by_class_name = dict()
+        
+        for k,v in self.properties_by_class_name.items():
+            if type(v) != Naming:
+                properties_by_class_name[k] = v
+        
+        self.properties_by_class_name = properties_by_class_name
+
         (self.O * term * self.O).evaluate()
         yield from self.properties
 
@@ -619,25 +404,30 @@ And the abstract class generation works as well:
                 
 
     def _update_naming(self, name):
+        found = self.namings_by_class_name.get(name, None)
+        if not found is None:
+            return found
+
         naming = Naming(name)
-        found = self.namings_by_value_name.get(naming.value_name, None)
+        found = self.namings_by_class_name.get(naming.class_name, None)
 
         if found is None:
-            self.namings_by_value_name[naming.value_name] = naming
+            self.namings_by_class_name[naming.class_name] = naming
+            return naming
+        else:
+            return found
 
     def _connect(self, source_name: str, sink_name: str):
-        self._update_naming(source_name)
-        source = self.namings_by_value_name.get(source_name)
+        source = self._update_naming(source_name)
 
-        self._update_naming(sink_name)
-        sink = self.namings_by_value_name.get(sink_name)
+        sink = self._update_naming(sink_name)
 
-        component_list = self.properties_by_value_name.get(
-            source.value_name,
+        component_list = self.properties_by_class_name.get(
+            source.class_name,
             PropertyList())
 
         component_list.add(sink)
-        self.properties_by_value_name[source.value_name] = component_list
+        self.properties_by_class_name[source.class_name] = component_list
 
 
     def get_abstract_classes(self):
@@ -647,7 +437,7 @@ And the abstract class generation works as well:
         types_dict = dict()
         for class_definition in self.properties:
             if isinstance(class_definition.naming, ContainerNaming):
-                item_naming = self.namings_by_value_name[class_definition.naming.item_value_name]
+                item_naming = self.namings_by_class_name[class_definition.naming.item_class_name]
                 types_dict[class_definition.naming.interface_name] = InterfaceGenerator.generate_abstract_container(class_definition, item_naming)
             else:
                 types_dict[class_definition.naming.interface_name] = InterfaceGenerator.generate_abstract_class(class_definition)
@@ -655,7 +445,5 @@ And the abstract class generation works as well:
 
 
 
-if __name__ == '__main__':
-    import doctest
-    doctest.testmod()
+
     
