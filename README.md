@@ -38,16 +38,16 @@ have the properties set into the graph g like this:
 
     >>> for i in g.get_properties_from( speed*(distance+duration) ):
     ...  print(i)
-    {"naming": {"type": "Distance", "value": "distance", "docstring": "distance"}}
-    {"naming": {"type": "Duration", "value": "duration", "docstring": "duration"}}
-    {"naming": {"type": "Speed", "value": "speed", "docstring": "speed"}, "properties": ["Distance", "Duration"]}
+    {"naming": {"type": "Distance", "value": "distance", "plural": "distances", "docstring": "distance"}}
+    {"naming": {"type": "Duration", "value": "duration", "plural": "durations", "docstring": "duration"}}
+    {"naming": {"type": "Speed", "value": "speed", "plural": "speeds", "docstring": "speed"}, "properties": ["Distance", "Duration"]}
 
 
     >>> for i in g.properties:
     ...  print(i)
-    {"naming": {"type": "Distance", "value": "distance", "docstring": "distance"}}
-    {"naming": {"type": "Duration", "value": "duration", "docstring": "duration"}}
-    {"naming": {"type": "Speed", "value": "speed", "docstring": "speed"}, "properties": ["Distance", "Duration"]}
+    {"naming": {"type": "Distance", "value": "distance", "plural": "distances", "docstring": "distance"}}
+    {"naming": {"type": "Duration", "value": "duration", "plural": "durations", "docstring": "duration"}}
+    {"naming": {"type": "Speed", "value": "speed", "plural": "speeds", "docstring": "speed"}, "properties": ["Distance", "Duration"]}
 
 For fines you have to know (at least in Finland) also:
 
@@ -57,12 +57,12 @@ For fines you have to know (at least in Finland) also:
     >>> first_model = O * (speed*(distance + duration) + fine*(speed + monthly_income + speed_limit)) * O
     >>> for i in g.get_properties_from(first_model):
     ...  print(i)
-    {"naming": {"type": "Distance", "value": "distance", "docstring": "distance"}}
-    {"naming": {"type": "Duration", "value": "duration", "docstring": "duration"}}
-    {"naming": {"type": "Fine", "value": "fine", "docstring": "fine"}, "properties": ["MonthlyIncome", "Speed", "SpeedLimit"]}
-    {"naming": {"type": "MonthlyIncome", "value": "monthly_income", "docstring": "monthly income"}}
-    {"naming": {"type": "Speed", "value": "speed", "docstring": "speed"}, "properties": ["Distance", "Duration"]}
-    {"naming": {"type": "SpeedLimit", "value": "speed_limit", "docstring": "speed limit"}}
+    {"naming": {"type": "Distance", "value": "distance", "plural": "distances", "docstring": "distance"}}
+    {"naming": {"type": "Duration", "value": "duration", "plural": "durations", "docstring": "duration"}}
+    {"naming": {"type": "Fine", "value": "fine", "plural": "fines", "docstring": "fine"}, "properties": ["MonthlyIncome", "Speed", "SpeedLimit"]}
+    {"naming": {"type": "MonthlyIncome", "value": "monthly_income", "plural": "monthly_incomes", "docstring": "monthly income"}}
+    {"naming": {"type": "Speed", "value": "speed", "plural": "speeds", "docstring": "speed"}, "properties": ["Distance", "Duration"]}
+    {"naming": {"type": "SpeedLimit", "value": "speed_limit", "plural": "speed_limits", "docstring": "speed limit"}}
 
 Because these equations are the same (note the usage of the O at the begin and end)
 
@@ -74,12 +74,13 @@ also the generated properties are the same:
 
     >>> for i in g.get_properties_from(simplified_model):
     ...  print(i)
-    {"naming": {"type": "Distance", "value": "distance", "docstring": "distance"}}
-    {"naming": {"type": "Duration", "value": "duration", "docstring": "duration"}}
-    {"naming": {"type": "Fine", "value": "fine", "docstring": "fine"}, "properties": ["MonthlyIncome", "Speed", "SpeedLimit"]}
-    {"naming": {"type": "MonthlyIncome", "value": "monthly_income", "docstring": "monthly income"}}
-    {"naming": {"type": "Speed", "value": "speed", "docstring": "speed"}, "properties": ["Distance", "Duration"]}
-    {"naming": {"type": "SpeedLimit", "value": "speed_limit", "docstring": "speed limit"}}
+    {"naming": {"type": "Distance", "value": "distance", "plural": "distances", "docstring": "distance"}}
+    {"naming": {"type": "Duration", "value": "duration", "plural": "durations", "docstring": "duration"}}
+    {"naming": {"type": "Fine", "value": "fine", "plural": "fines", "docstring": "fine"}, "properties": ["MonthlyIncome", "Speed", "SpeedLimit"]}
+    {"naming": {"type": "MonthlyIncome", "value": "monthly_income", "plural": "monthly_incomes", "docstring": "monthly income"}}
+    {"naming": {"type": "Speed", "value": "speed", "plural": "speeds", "docstring": "speed"}, "properties": ["Distance", "Duration"]}
+    {"naming": {"type": "SpeedLimit", "value": "speed_limit", "plural": "speed_limits", "docstring": "speed limit"}}
+
 
 Nice and simple, but then the reality starts to kick in and you have to model the real thing where you have for example
 different rules for small fines which do not need monthly income:
@@ -88,13 +89,14 @@ different rules for small fines which do not need monthly income:
     >>> second_model =O*(fine* (speed*(distance + duration)*O + monthly_income + speed_limit) + small_fine*(speed + speed_limit))*O
     >>> for i in g.get_properties_from(second_model):
     ...  print(i)
-    {"naming": {"type": "Distance", "value": "distance", "docstring": "distance"}}
-    {"naming": {"type": "Duration", "value": "duration", "docstring": "duration"}}
-    {"naming": {"type": "Fine", "value": "fine", "docstring": "fine"}, "properties": ["MonthlyIncome", "Speed", "SpeedLimit"]}
-    {"naming": {"type": "MonthlyIncome", "value": "monthly_income", "docstring": "monthly income"}}
-    {"naming": {"type": "SmallFine", "value": "small_fine", "docstring": "small fine"}, "properties": ["Speed", "SpeedLimit"]}
-    {"naming": {"type": "Speed", "value": "speed", "docstring": "speed"}, "properties": ["Distance", "Duration"]}
-    {"naming": {"type": "SpeedLimit", "value": "speed_limit", "docstring": "speed limit"}}
+    {"naming": {"type": "Distance", "value": "distance", "plural": "distances", "docstring": "distance"}}
+    {"naming": {"type": "Duration", "value": "duration", "plural": "durations", "docstring": "duration"}}
+    {"naming": {"type": "Fine", "value": "fine", "plural": "fines", "docstring": "fine"}, "properties": ["MonthlyIncome", "Speed", "SpeedLimit"]}
+    {"naming": {"type": "MonthlyIncome", "value": "monthly_income", "plural": "monthly_incomes", "docstring": "monthly income"}}
+    {"naming": {"type": "SmallFine", "value": "small_fine", "plural": "small_fines", "docstring": "small fine"}, "properties": ["Speed", "SpeedLimit"]}
+    {"naming": {"type": "Speed", "value": "speed", "plural": "speeds", "docstring": "speed"}, "properties": ["Distance", "Duration"]}
+    {"naming": {"type": "SpeedLimit", "value": "speed_limit", "plural": "speed_limits", "docstring": "speed limit"}}
+
 
 Here one could create an intermediate class and use it as a member on both fines or inherit the small fine and fine from the same base class.
 If you write it by using the provided equation system, it looks like this:
@@ -147,5 +149,42 @@ means that these behave in similar way:
 
 When you dont yet know your domain model well, with this you could write your code first and clean the 
 inheritance or composition arrangements later without changing a bit from the abstract classes you actually use.
+
+The container types are supported this far:
+
+    >>> R = g.R
+    >>> fine_container = R('fine')
+    >>> fine_container
+    (C(fine_container)) * (C(fine))
+
+Or
+
+    >>> g  = PropertyGraph()
+    >>> I, O, C, N, R = g.I, g.O, g.C, g.N, g.R
+
+
+    >>> knife = N(name="knife", plural="knives")
+    >>> knife
+    C(knife)
+    >>> knife_container = R('knife')
+    >>> model = O * knife_container * O
+    >>> model
+    ((O) * ((C(knife_container)) * (C(knife)))) * (O)
+
+And the abstract class generation works as well:
+
+    >>> for term in g.get_properties_from(model):
+    ...   print(term)
+    {"naming": {"type": "Knife", "value": "knife", "plural": "knives", "docstring": "knife"}}
+    {"naming": {"type": "KnifeContainer", "value": "knife_container", "plural": "knife_containers", "docstring": "knife container"}, "properties": ["Knife"]}
+
+
+    >>> interfaces = g.get_abstract_classes()
+    >>> class KnifeContainer(interfaces.IKnifeContainer): pass
+    >>> f = KnifeContainer()
+    Traceback (most recent call last):
+    ...
+    TypeError: Can't instantiate abstract class KnifeContainer with abstract methods knives
+
 
     

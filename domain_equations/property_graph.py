@@ -16,16 +16,23 @@ class Naming:
     """
     Representation of type and variable naming
     """
-    def __init__(self, name: str):
+    def __init__(self, name: str, plural:str = None, module_name: str=None):
         """
         >>> Naming("foo_bar")
-        {"type": "FooBar", "value": "foo_bar", "docstring": "foo bar"}
+        {"type": "FooBar", "value": "foo_bar", "plural": "foo_bars", "docstring": "foo bar"}
+        >>> Naming("foo_bar", module_name="module")
+        {"type": "module.FooBar", "value": "foo_bar", "plural": "foo_bars", "docstring": "foo bar"}
         """
         if not isinstance(name, str) or not re.match(r'[a-z][a-z_]*', name):
             raise ValueError("name should be a non empty lowercase string matching [a-z][a-z_]*")
+        if plural is not None and (not isinstance(plural, str) or not re.match(r'[a-z][a-z_]*', plural)):
+            raise ValueError("name plural be a non empty lowercase string matching [a-z][a-z_]*")
         self._value_name = name
-        self._class_name = Naming.camel_case(name)
+        self._plural_value_name = plural if plural is not None else Naming.plural(name)
+        self._module_name = module_name
+        self._class_name = (module_name + "." if module_name != None else "") + Naming.camel_case(name)
         self._components = set()
+        
 
     @property
     def value_name(self) -> str:
@@ -33,6 +40,13 @@ class Naming:
         Name for values
         """
         return self._value_name
+
+    @property
+    def plural_value_name(self):
+        """
+        Name for plural values
+        """
+        return self._plural_value_name
     
     @property
     def docstring_name(self) -> str:
@@ -40,6 +54,15 @@ class Naming:
         Name for docstring
         """
         return self._value_name.replace('_', ' ')
+    
+    @property
+    def module_name(self) -> str:
+        """
+        Name for module of the class
+        >>> Naming("foo_bar", module_name="module").module_name
+        'module'
+        """
+        return self._module_name if self._module_name is not None else ""
 
     @property
     def class_name(self) -> str:
@@ -63,7 +86,7 @@ class Naming:
         return self.value_name.__hash__()
 
     def __str__(self)  -> str:
-        return '{{"type": "{}", "value": "{}", "docstring": "{}"}}'.format(self.class_name, self.value_name, self.docstring_name)
+        return '{{"type": "{}", "value": "{}", "plural": "{}", "docstring": "{}"}}'.format(self.class_name, self.value_name, self.plural_value_name, self.docstring_name)
 
     def __repr__(self):
         return str(self)
@@ -76,6 +99,7 @@ class Naming:
         True
         """
         return self.value_name < another.value_name
+
         
     @staticmethod
     def camel_case(word: str):
@@ -98,6 +122,56 @@ class Naming:
         if word == "":
             return word
         return word[0].upper() + word[1:]
+    
+    @staticmethod
+    def plural(word: str) -> str:
+        """
+        >>> Naming.plural('test')
+        'tests'
+
+        >>> Naming.plural('phalanx')
+        'phalanxes'
+
+        >> Naming.plural('ssh')
+        'sshes'
+
+        >> Naming.plural('snakes')
+        'snakeses'
+
+        >> Naming.plural('py')
+        'pyses'
+
+        >> Naming.plural('way')
+        'ways'
+
+        """
+        if word[-1] in ['x', 's']:
+                return word + 'es'
+        if len(word) >= 2:
+            if word[-1] == 'y':
+                if word[-2] in ['a', 'e', 'i', 'o', 'u']:
+                    return word + "s"
+                else:
+                    return word[:-1] + "es"
+            if word[-2:] in ["sh", "ch"]:
+                return word + 'es'
+
+        return word + "s"
+            
+class ContainerNaming(Naming):
+    def __init__(self, naming:Naming, module_name:str = None):
+        if not isinstance(naming, Naming):
+            raise ValueError("containers can be made only from Namings")
+        self._item_value_name = naming.value_name
+        name = naming.value_name + "_container"
+
+        super().__init__(name=name, module_name=module_name)
+
+    @property
+    def item_value_name(self):
+        return self._item_value_name
+
+
 
 
 class PropertyList:
@@ -156,10 +230,10 @@ class NamedProperty:
     >>> cl.add(Naming("duration"))
     >>> c = NamedProperty(Naming("speed"), cl)
     >>> c
-    {"naming": {"type": "Speed", "value": "speed", "docstring": "speed"}, "properties": ["Distance", "Duration"]}
+    {"naming": {"type": "Speed", "value": "speed", "plural": "speeds", "docstring": "speed"}, "properties": ["Distance", "Duration"]}
     >>> d = NamedProperty(Naming("speed"), None)
     >>> d
-    {"naming": {"type": "Speed", "value": "speed", "docstring": "speed"}}
+    {"naming": {"type": "Speed", "value": "speed", "plural": "speeds", "docstring": "speed"}}
 
     >>> c == NamedProperty(Naming("speed"), cl)
     True
@@ -202,6 +276,9 @@ class NamedProperty:
 
     def __repr__(self):
         return str(self)
+
+
+
 
 # TODO: wtf is python's description protocol?
 class InterfaceGenerator:
@@ -268,6 +345,33 @@ class InterfaceGenerator:
         template.__abstractmethods__ = frozenset(getters)
 
         return template
+    
+    @staticmethod
+    def generate_abstract_container(class_naming: NamedProperty, item_naming: Naming):
+        template = InterfaceGenerator.get_class_template(class_naming.naming)
+
+        items_name = str(item_naming.plural_value_name)
+
+        def getter(self):
+            raise NotImplementedError("Getter for property {} is not impplemented".format(
+                items_name))
+        getter.__name__ = items_name
+        getter = abc.abstractmethod(getter)
+
+        doc_str = "Returns all contained {} of the {} instance.".format(
+                item_naming.docstring_name, class_naming.naming.docstring_name)
+        setattr(template, items_name, getter)
+
+        p = property(fget=getter, doc=doc_str)
+
+        setattr(template, items_name, p)
+
+        template.__abstractmethods__ = frozenset([items_name])
+
+        #print(template.knives)
+        return template
+
+
 
 # TODO: get rid of the callback -thing
 
@@ -310,16 +414,16 @@ have the properties set into the graph g like this:
 
     >>> for i in g.get_properties_from( speed*(distance+duration) ):
     ...  print(i)
-    {"naming": {"type": "Distance", "value": "distance", "docstring": "distance"}}
-    {"naming": {"type": "Duration", "value": "duration", "docstring": "duration"}}
-    {"naming": {"type": "Speed", "value": "speed", "docstring": "speed"}, "properties": ["Distance", "Duration"]}
+    {"naming": {"type": "Distance", "value": "distance", "plural": "distances", "docstring": "distance"}}
+    {"naming": {"type": "Duration", "value": "duration", "plural": "durations", "docstring": "duration"}}
+    {"naming": {"type": "Speed", "value": "speed", "plural": "speeds", "docstring": "speed"}, "properties": ["Distance", "Duration"]}
 
 
     >>> for i in g.properties:
     ...  print(i)
-    {"naming": {"type": "Distance", "value": "distance", "docstring": "distance"}}
-    {"naming": {"type": "Duration", "value": "duration", "docstring": "duration"}}
-    {"naming": {"type": "Speed", "value": "speed", "docstring": "speed"}, "properties": ["Distance", "Duration"]}
+    {"naming": {"type": "Distance", "value": "distance", "plural": "distances", "docstring": "distance"}}
+    {"naming": {"type": "Duration", "value": "duration", "plural": "durations", "docstring": "duration"}}
+    {"naming": {"type": "Speed", "value": "speed", "plural": "speeds", "docstring": "speed"}, "properties": ["Distance", "Duration"]}
 
 For fines you have to know (at least in Finland) also:
 
@@ -329,12 +433,12 @@ For fines you have to know (at least in Finland) also:
     >>> first_model = O * (speed*(distance + duration) + fine*(speed + monthly_income + speed_limit)) * O
     >>> for i in g.get_properties_from(first_model):
     ...  print(i)
-    {"naming": {"type": "Distance", "value": "distance", "docstring": "distance"}}
-    {"naming": {"type": "Duration", "value": "duration", "docstring": "duration"}}
-    {"naming": {"type": "Fine", "value": "fine", "docstring": "fine"}, "properties": ["MonthlyIncome", "Speed", "SpeedLimit"]}
-    {"naming": {"type": "MonthlyIncome", "value": "monthly_income", "docstring": "monthly income"}}
-    {"naming": {"type": "Speed", "value": "speed", "docstring": "speed"}, "properties": ["Distance", "Duration"]}
-    {"naming": {"type": "SpeedLimit", "value": "speed_limit", "docstring": "speed limit"}}
+    {"naming": {"type": "Distance", "value": "distance", "plural": "distances", "docstring": "distance"}}
+    {"naming": {"type": "Duration", "value": "duration", "plural": "durations", "docstring": "duration"}}
+    {"naming": {"type": "Fine", "value": "fine", "plural": "fines", "docstring": "fine"}, "properties": ["MonthlyIncome", "Speed", "SpeedLimit"]}
+    {"naming": {"type": "MonthlyIncome", "value": "monthly_income", "plural": "monthly_incomes", "docstring": "monthly income"}}
+    {"naming": {"type": "Speed", "value": "speed", "plural": "speeds", "docstring": "speed"}, "properties": ["Distance", "Duration"]}
+    {"naming": {"type": "SpeedLimit", "value": "speed_limit", "plural": "speed_limits", "docstring": "speed limit"}}
 
 Because these equations are the same (note the usage of the O at the begin and end)
 
@@ -346,12 +450,13 @@ also the generated properties are the same:
 
     >>> for i in g.get_properties_from(simplified_model):
     ...  print(i)
-    {"naming": {"type": "Distance", "value": "distance", "docstring": "distance"}}
-    {"naming": {"type": "Duration", "value": "duration", "docstring": "duration"}}
-    {"naming": {"type": "Fine", "value": "fine", "docstring": "fine"}, "properties": ["MonthlyIncome", "Speed", "SpeedLimit"]}
-    {"naming": {"type": "MonthlyIncome", "value": "monthly_income", "docstring": "monthly income"}}
-    {"naming": {"type": "Speed", "value": "speed", "docstring": "speed"}, "properties": ["Distance", "Duration"]}
-    {"naming": {"type": "SpeedLimit", "value": "speed_limit", "docstring": "speed limit"}}
+    {"naming": {"type": "Distance", "value": "distance", "plural": "distances", "docstring": "distance"}}
+    {"naming": {"type": "Duration", "value": "duration", "plural": "durations", "docstring": "duration"}}
+    {"naming": {"type": "Fine", "value": "fine", "plural": "fines", "docstring": "fine"}, "properties": ["MonthlyIncome", "Speed", "SpeedLimit"]}
+    {"naming": {"type": "MonthlyIncome", "value": "monthly_income", "plural": "monthly_incomes", "docstring": "monthly income"}}
+    {"naming": {"type": "Speed", "value": "speed", "plural": "speeds", "docstring": "speed"}, "properties": ["Distance", "Duration"]}
+    {"naming": {"type": "SpeedLimit", "value": "speed_limit", "plural": "speed_limits", "docstring": "speed limit"}}
+
 
 Nice and simple, but then the reality starts to kick in and you have to model the real thing where you have for example
 different rules for small fines which do not need monthly income:
@@ -360,13 +465,14 @@ different rules for small fines which do not need monthly income:
     >>> second_model =O*(fine* (speed*(distance + duration)*O + monthly_income + speed_limit) + small_fine*(speed + speed_limit))*O
     >>> for i in g.get_properties_from(second_model):
     ...  print(i)
-    {"naming": {"type": "Distance", "value": "distance", "docstring": "distance"}}
-    {"naming": {"type": "Duration", "value": "duration", "docstring": "duration"}}
-    {"naming": {"type": "Fine", "value": "fine", "docstring": "fine"}, "properties": ["MonthlyIncome", "Speed", "SpeedLimit"]}
-    {"naming": {"type": "MonthlyIncome", "value": "monthly_income", "docstring": "monthly income"}}
-    {"naming": {"type": "SmallFine", "value": "small_fine", "docstring": "small fine"}, "properties": ["Speed", "SpeedLimit"]}
-    {"naming": {"type": "Speed", "value": "speed", "docstring": "speed"}, "properties": ["Distance", "Duration"]}
-    {"naming": {"type": "SpeedLimit", "value": "speed_limit", "docstring": "speed limit"}}
+    {"naming": {"type": "Distance", "value": "distance", "plural": "distances", "docstring": "distance"}}
+    {"naming": {"type": "Duration", "value": "duration", "plural": "durations", "docstring": "duration"}}
+    {"naming": {"type": "Fine", "value": "fine", "plural": "fines", "docstring": "fine"}, "properties": ["MonthlyIncome", "Speed", "SpeedLimit"]}
+    {"naming": {"type": "MonthlyIncome", "value": "monthly_income", "plural": "monthly_incomes", "docstring": "monthly income"}}
+    {"naming": {"type": "SmallFine", "value": "small_fine", "plural": "small_fines", "docstring": "small fine"}, "properties": ["Speed", "SpeedLimit"]}
+    {"naming": {"type": "Speed", "value": "speed", "plural": "speeds", "docstring": "speed"}, "properties": ["Distance", "Duration"]}
+    {"naming": {"type": "SpeedLimit", "value": "speed_limit", "plural": "speed_limits", "docstring": "speed limit"}}
+
 
 Here one could create an intermediate class and use it as a member on both fines or inherit the small fine and fine from the same base class.
 If you write it by using the provided equation system, it looks like this:
@@ -420,12 +526,62 @@ means that these behave in similar way:
 When you dont yet know your domain model well, with this you could write your code first and clean the 
 inheritance or composition arrangements later without changing a bit from the abstract classes you actually use.
 
+The container types are supported this far:
+
+    >>> R = g.R
+    >>> fine_container = R('fine')
+    >>> fine_container
+    (C(fine_container)) * (C(fine))
+
+Or
+
+    >>> g  = PropertyGraph()
+    >>> I, O, C, N, R = g.I, g.O, g.C, g.N, g.R
+
+
+    >>> knife = N(name="knife", plural="knives")
+    >>> knife
+    C(knife)
+    >>> knife_container = R('knife')
+    >>> model = O * knife_container * O
+    >>> model
+    ((O) * ((C(knife_container)) * (C(knife)))) * (O)
+
+And the abstract class generation works as well:
+
+    >>> for term in g.get_properties_from(model):
+    ...   print(term)
+    {"naming": {"type": "Knife", "value": "knife", "plural": "knives", "docstring": "knife"}}
+    {"naming": {"type": "KnifeContainer", "value": "knife_container", "plural": "knife_containers", "docstring": "knife container"}, "properties": ["Knife"]}
+
+
+    >>> interfaces = g.get_abstract_classes()
+    >>> class KnifeContainer(interfaces.IKnifeContainer): pass
+    >>> f = KnifeContainer()
+    Traceback (most recent call last):
+    ...
+    TypeError: Can't instantiate abstract class KnifeContainer with abstract methods knives
+
+
     """
 
     def __init__(self):
         self.clear()
         self.I, self.O, self.C = from_operator(self._connect)
 
+        def repeated(name):
+            naming = Naming(name)
+            container = ContainerNaming(naming)
+            # workaround to get the type right
+            self.namings_by_value_name[container.value_name] = container
+            return self.C(container.value_name) * self.C(name)
+        self.R = repeated
+
+        def naming_getter(*args, **kvargs):
+            naming = Naming(*args, **kvargs)
+            self.namings_by_value_name[naming.value_name] = naming
+            return self.C(naming.value_name)
+        self.N = naming_getter
 
     def clear(self):
         """
@@ -451,7 +607,7 @@ inheritance or composition arrangements later without changing a bit from the ab
         Get the properties from the given term which has been done using the wrapper
         provided on the same class instance
         """
-        self.clear()
+        self.properties_by_value_name = {}
         (self.O * term * self.O).evaluate()
         yield from self.properties
 
@@ -490,7 +646,11 @@ inheritance or composition arrangements later without changing a bit from the ab
         """
         types_dict = dict()
         for class_definition in self.properties:
-            types_dict[class_definition.naming.interface_name] = InterfaceGenerator.generate_abstract_class(class_definition)
+            if isinstance(class_definition.naming, ContainerNaming):
+                item_naming = self.namings_by_value_name[class_definition.naming.item_value_name]
+                types_dict[class_definition.naming.interface_name] = InterfaceGenerator.generate_abstract_container(class_definition, item_naming)
+            else:
+                types_dict[class_definition.naming.interface_name] = InterfaceGenerator.generate_abstract_class(class_definition)
         return types.SimpleNamespace(**types_dict)
 
 
