@@ -67,6 +67,15 @@ class Naming:
 
     def __repr__(self):
         return str(self)
+    
+    def __lt__(self, another):
+        """
+        >>> Naming("foo_bar") < Naming("foo")
+        False
+        >>> Naming("foo") < Naming("foo_bar")
+        True
+        """
+        return self.value_name < another.value_name
         
     @staticmethod
     def camel_case(word: str):
