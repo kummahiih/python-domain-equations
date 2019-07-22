@@ -64,8 +64,8 @@ class ProtobufGenerator:
                         sub_modules.add(sub_property_naming.module_name)
         sub_modules = sorted(list(sub_modules))
         for sub_module in sub_modules:
-            file_content.append('import {};'.format(sub_module))
-
+            if sub_module != module.module_name:
+                file_content.append('import {};'.format(sub_module))
 
             
         # this is a mess. needs improved pattern mathing capabilities

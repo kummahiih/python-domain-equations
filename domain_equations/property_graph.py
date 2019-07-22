@@ -372,7 +372,7 @@ Base types are can be taken here with a decorator 'T' obtained above and they wo
             pl = PropertyList()
             if naming.module_name is None:
                 continue
-            modules.get(naming.module_name, pl)
+            pl = modules.get(naming.module_name, pl)
             pl.add(naming)
             modules[naming.module_name] = pl
         properties = list(self.properties)
