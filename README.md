@@ -113,8 +113,8 @@ product terms which end to the terminator O:
 
     >>> for term in g.extract_intermediate_terms(second_model_simplified):
     ...   print(term)
-    (((C(speed)) + ((C(speed_limit)) * (O))) * ((C(distance)) + (C(duration)))) * (O)
-    ((C(distance)) + (C(duration))) * (O)
+    (C(speed) + C(speed_limit) * O) * (C(distance) + C(duration)) * O
+    (C(distance) + C(duration)) * O
 
 And of course it is possible to generate abstract class definitions from the model:
 
@@ -155,7 +155,7 @@ The container types are supported this far:
     >>> R = g.R
     >>> fine_container = R('fine')
     >>> fine_container * fine
-    (C(fine_container)) * (C(fine))
+    C(fine_container) * C(fine)
 
 Or
 
@@ -169,7 +169,7 @@ Or
     >>> knife_container = R('knife', item_module="accessories")
     >>> model = O * knife_container * knife * O
     >>> model
-    (((O) * (C(knife_container))) * (C(accessories.Knife))) * (O)
+    O * C(knife_container) * C(accessories.Knife) * O
 
 And the abstract class generation works as well:
 
@@ -199,7 +199,7 @@ Base types are can be taken here with a decorator 'T' obtained above and they wo
 
     >>> model = O *(R('knife', item_module="accessories", container_module="kitchen") * knife * O + knife * bytes) * O
     >>> model
-    ((O) * ((((C(kitchen.KnifeContainer)) * (C(accessories.Knife))) * (O)) + ((C(accessories.Knife)) * (C(bytes))))) * (O)
+    O * (C(kitchen.KnifeContainer) * C(accessories.Knife) * O + C(accessories.Knife) * C(bytes)) * O
 
     >>> for term in g.get_properties_from(model):
     ...   print(term)
