@@ -5,7 +5,7 @@
 
 import types
 
-from category_equations import from_operator, get_topmost_tail_products
+from category_equations import from_operator, Get
 
 from .naming import Naming, ContainerNaming, TypeDescriptor
 from .namedproperty import NamedProperty, PropertyList, Module
@@ -397,7 +397,7 @@ Base types are can be taken here with a decorator 'T' obtained above and they wo
         yield from self.properties
 
     def extract_intermediate_terms(self, term):
-        for intermediate_term in get_topmost_tail_products(term):
+        for intermediate_term in Get.topmost_tail_products(term):
             if not intermediate_term in [term, self.O, self.I]:
                 if self.O * intermediate_term != term:
                     yield  intermediate_term
